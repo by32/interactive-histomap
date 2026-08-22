@@ -1,0 +1,56 @@
+:root {
+  /* Parchment theme — one deliberate look */
+  --parchment: #f4ecd9;
+  --parchment-deep: #ece1c6;
+  --ocean: #d8d0ba;
+  --ink: #3a3226;
+  --ink-soft: rgba(58, 50, 38, 0.62);
+  --ink-faint: rgba(58, 50, 38, 0.28);
+  --ink-hairline: rgba(58, 50, 38, 0.14);
+  --accent: #b23a48;
+  --panel: #f9f3e4;
+  --shadow: 0 2px 14px rgba(58, 50, 38, 0.18);
+
+  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --font-ui: system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --header-h: 52px;
+  --ribbon-w: clamp(250px, 24vw, 360px);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--parchment);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  overflow: hidden;
+}
+
+button {
+  font-family: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
