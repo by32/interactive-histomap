@@ -138,11 +138,13 @@ const hslToHex = (h, s, l) => {
   return `#${to(r)}${to(g)}${to(b)}`
 }
 const shade = (hex, step) => {
-  // deterministic lightness ladder: 0, +.07, -.07, +.13, -.13, ...
+  // deterministic lightness/hue ladder, cycling so large families never
+  // run off into white or black: 9 shade steps, then a small hue nudge
   const [h, s, l] = hexToHsl(hex)
-  const mag = Math.ceil(step / 2) * 0.065
-  const dl = step === 0 ? 0 : step % 2 === 1 ? mag : -mag
-  return hslToHex(h, s, Math.min(0.8, Math.max(0.2, l + dl)))
+  const DL = [0, 0.06, -0.06, 0.12, -0.12, 0.17, -0.17, 0.09, -0.09]
+  const cycle = Math.floor(step / DL.length)
+  const dh = (cycle % 3) * 0.022 * (cycle % 2 === 0 ? 1 : -1)
+  return hslToHex((h + dh + 1) % 1, s, Math.min(0.78, Math.max(0.24, l + DL[step % DL.length])))
 }
 const hashStr = (s) => {
   let h = 5381
