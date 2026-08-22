@@ -40,7 +40,7 @@
     "chile": { "label": "Chile", "family": "americas", "aliases": ["Chile"] },
     "venezuela": { "label": "Venezuela", "family": "americas", "aliases": ["Venezuela"] },
 
-    "spain": { "label": "Spain", "family": "iberia", "wiki": "Spanish Empire", "aliases": ["Spain", "Kingdom of Spain", "Spanish Empire", "Castile", "Crown of Castile", "Aragon", "Crown of Aragon"] },
+    "spain": { "label": "Spain", "family": "iberia", "wiki": "Spanish Empire", "aliases": ["Spain", "Kingdom of Spain", "Spanish Empire", "Castile", "Castille", "Crown of Castile", "Aragon", "Crown of Aragon"] },
     "portugal": { "label": "Portugal", "family": "iberia", "wiki": "Portuguese Empire", "aliases": ["Portugal", "Kingdom of Portugal", "Portuguese Empire"] },
     "new-spain": { "label": "Viceroyalty of New Spain", "family": "iberia", "wiki": "New Spain", "aliases": ["Vice-Royalty of New Spain", "Vice Royalty of New Spain", "Viceroyalty of New Spain", "New Spain"] },
     "peru-viceroyalty": { "label": "Viceroyalty of Peru", "family": "iberia", "wiki": "Viceroyalty of Peru", "aliases": ["Vice-Royalty of Peru", "Vice Royalty of Peru", "Viceroyalty of Peru"] },
@@ -49,7 +49,7 @@
     "brazil-colonial": { "label": "Portuguese Brazil", "family": "iberia", "wiki": "Colonial Brazil", "aliases": ["Vice-Royalty of Brazil", "Viceroyalty of Brazil", "Portuguese Brazil"] },
     "spanish-louisiana": { "label": "Spanish Louisiana", "family": "iberia", "wiki": "Louisiana (New Spain)", "aliases": [{ "n": "Luisiana", "from": 1763 }, "Louisiana (Spain)", "Louisiana (ES)"] },
 
-    "britain": { "label": "Britain", "family": "britain", "wiki": "British Empire", "aliases": ["England", "Kingdom of England", "Great Britain", "Kingdom of Great Britain", "United Kingdom", "UK", "British Empire", "Britain"] },
+    "britain": { "label": "Britain", "family": "britain", "wiki": "British Empire", "aliases": ["England", "Kingdom of England", "Great Britain", "Kingdom of Great Britain", "United Kingdom", "United Kingdom of Great Britain and Ireland", "United Kingdom of Great Britain and Northern Ireland", "UK", "British Empire", "Britain"] },
     "scotland": { "label": "Scotland", "family": "britain", "aliases": ["Scotland", "Kingdom of Scotland"] },
     "ireland": { "label": "Ireland", "family": "britain", "aliases": ["Ireland", "Irish kingdoms"] },
     "british-raj": { "label": "British India", "family": "britain", "wiki": "British Raj", "aliases": ["British Raj", "British India", "India (UK)", "East India Company", { "n": "India", "to": 1946 }] },
@@ -58,7 +58,7 @@
     "new-zealand": { "label": "New Zealand", "family": "britain", "aliases": ["New Zealand", "New Zealand (UK)"] },
     "south-africa": { "label": "South Africa", "family": "britain", "wiki": "Union of South Africa", "aliases": ["Union of South Africa", "South Africa", "Cape Colony", "Cape Colony (UK)"] },
     "anglo-sudan": { "label": "Anglo-Egyptian Sudan", "family": "britain", "wiki": "Anglo-Egyptian Sudan", "aliases": ["Anglo-Egyptian Sudan", "Anglo-Egyption Sudan", { "n": "Sudan", "from": 1899, "to": 1955 }] },
-    "british-east-africa": { "label": "British East Africa", "family": "britain", "aliases": ["British East Africa", "Kenya (UK)", "Uganda (UK)", "Rhodesia", "Rhodesia (UK)", "Northern Rhodesia", "Southern Rhodesia", "Bechuanaland", "Nigeria (UK)", "Gold Coast (UK)"] },
+    "british-africa": { "label": "British Africa", "family": "britain", "wiki": "British Empire", "aliases": ["British East Africa", "British Somaliland", "Kenya (UK)", { "n": "Kenya", "to": 1962 }, "Uganda (UK)", { "n": "Uganda", "to": 1961 }, "Rhodesia", "Rhodesia (UK)", "Northern Rhodesia", "Southern Rhodesia", "Bechuanaland", "Nigeria (UK)", { "n": "Nigeria", "to": 1959 }, "Gold Coast (UK)", { "n": "Gold Coast", "to": 1956 }, { "n": "Tanganyika", "to": 1960 }] },
 
     "france": { "label": "France", "family": "france", "wiki": "France", "aliases": ["France", "Kingdom of France", "French Empire", "French Republic", "West Francia"] },
     "franks": { "label": "Frankish Empire", "family": "france", "wiki": "Francia", "aliases": ["Frankish Empire", "Frankish Kingdom", "Franks", "Francia", "Carolingian Empire", "Kingdom of the Franks"] },
@@ -249,8 +249,8 @@
     "jin-jurchen": { "label": "Jin (Jurchen)", "family": "china", "wiki": "Jin dynasty (1115–1234)", "aliases": [{ "n": "Jin", "from": 1100, "to": 1240 }, { "n": "Jin Empire", "from": 1100, "to": 1240 }, "Jurchen Jin", "Jurchens"] },
     "ming": { "label": "Ming China", "family": "china", "wiki": "Ming dynasty", "aliases": ["Ming Empire", "Ming Chinese Empire", "Ming", "Ming dynasty", "Ming China", "Post-Ming Warlords", "Southern Ming"] },
     "xixia": { "label": "Western Xia", "family": "china", "wiki": "Western Xia", "aliases": ["Xixia", "Western Xia", "Xi Xia", "Tangut", "Tanguts"] },
-    "qing": { "label": "Qing China", "family": "china", "wiki": "Qing dynasty", "aliases": ["Qing Empire", "Manchu Empire", "Qing", "Qing dynasty", "Ch'ing", "Qing China", "Manchuria", "Manchukuo"] },
-    "china-republic": { "label": "Republican China", "family": "china", "wiki": "Republic of China (1912–1949)", "aliases": ["Republic of China", "Chinese Warlords", "Chinese warlords", "Nationalist China", "Kuomintang China"] },
+    "qing": { "label": "Qing China", "family": "china", "wiki": "Qing dynasty", "aliases": ["Qing Empire", "Manchu Empire", "Qing", "Qing dynasty", "Ch'ing", "Qing China", { "n": "Manchuria", "to": 1911 }, "Manchus", "Jurchen"] },
+    "china-republic": { "label": "Republican China", "family": "china", "wiki": "Republic of China (1912–1949)", "aliases": ["Republic of China", "Chinese Warlords", "Chinese warlords", "Nationalist China", "Kuomintang China", { "n": "Manchuria", "from": 1912 }, "Manchukuo"] },
     "china-modern": { "label": "China (PRC)", "family": "china", "wiki": "China", "aliases": [{ "n": "China", "from": 1949 }, "People's Republic of China", "PRC"] },
     "china-generic": { "label": "China", "family": "china", "aliases": [{ "n": "China", "to": 1948 }] },
     "taiwan": { "label": "Taiwan", "family": "china", "aliases": ["Taiwan", "Formosa"] },
@@ -328,7 +328,14 @@
   },
   "zones": ["Antarctica", "Sahara", "Arctic", "Greenland ice sheet"],
   "aggregates": ["minor states", "minor kingdoms", "small states", "various states", "city states"],
-  "forceStreams": ["egypt", "sumer", "babylon", "assyria", "hittites", "greece-city-states", "rome", "byzantium", "japan"],
+  "forceStreams": [
+    "egypt", "sumer", "babylon", "assyria", "hittites", "greece-city-states", "rome", "byzantium",
+    "japan", "korea", "france", "franks", "britain", "spain", "portugal", "germany", "hre",
+    "prussia", "austria", "netherlands", "poland", "lithuania", "hungary", "sweden", "denmark",
+    "kalmar", "italy", "venice", "sardinia", "greece-modern", "serbia", "bulgaria", "aztec",
+    "inca", "maya", "siam", "vietnam", "burma", "khmer", "srivijaya", "israel-ancient",
+    "carthage", "canaan", "aksum", "morocco", "seljuk", "turkey"
+  ],
   "neutrals": ["#a89b83", "#9b8f7a", "#b0a28a", "#8f836e", "#a4947c", "#97907f", "#ada083", "#8a7f6c"],
   "cultureTones": ["#ded2b3", "#d8ccae", "#e3d8bc"],
   "unclaimedTone": "#e9e0c9"
