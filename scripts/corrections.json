@@ -1,0 +1,19 @@
+{
+  "_about": "Documented patches applied to the upstream historical-basemaps GeoJSON before processing. Every entry must carry a 'note' (what & why) and a 'source' (citation for the correct fact). Entries match features by exact raw NAME string (case-insensitive, whitespace-normalized) in one snapshot year (signed; negative = BC). 'set' rewrites properties; 'drop': true removes the feature. Ambiguous cases are NOT patched here — they are disclosed in ERRATA.md instead.",
+  "corrections": [
+    {
+      "year": -1500,
+      "whereName": "Zhoa",
+      "set": { "NAME": "Shang" },
+      "note": "The 1500 BC snapshot labels the Chinese heartland (bbox ~104–122E, 27–40N) 'Zhoa'. Around 1500 BC the polity dominating the Yellow River heartland is the Shang state (c. 1600–1046 BC); 'Zhoa' appears to be a garbled 'Zhou', a dynasty that had not yet risen.",
+      "source": "Encyclopaedia Britannica, 'Shang dynasty'; Cambridge History of Ancient China (1999), ch. 3"
+    },
+    {
+      "year": 1930,
+      "whereName": "White Russia",
+      "set": { "NAME": "USSR" },
+      "note": "The 1930 snapshot labels the entire Soviet Union (bbox spanning -180..180E, 35–78N) 'White Russia'. The USSR was established in December 1922 and the White movement was defeated by 1923; the sibling 1920 snapshot correctly labels the union-wide polity 'USSR' and uses 'White Russia' for the Belarus region.",
+      "source": "Encyclopaedia Britannica, 'Soviet Union'"
+    }
+  ]
+}
