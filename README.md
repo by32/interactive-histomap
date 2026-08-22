@@ -1,5 +1,7 @@
 # The Interactive Histomap
 
+**Live: https://by32.github.io/interactive-histomap/**
+
 A modern, accurate, interactive, map-based homage to John B. Sparks' 1931 **Histomap**
 ("Four Thousand Years of World History — Relative Power of Contemporary States, Nations and
 Empires", Rand McNally) — the five-foot chart whose colored bands traced civilizations from
