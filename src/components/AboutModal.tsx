@@ -50,8 +50,10 @@ export default function AboutModal() {
           </li>
           <li>
             Streams are grouped into <strong>civilization families</strong> echoing the 1931
-            original (one hue per family, shade variants per polity). About 160 polities are
-            named streams; the rest aggregate into &ldquo;Other states.&rdquo;
+            original (one hue per family, shade variants per polity). About 180 polities are
+            named streams &mdash; every polity that ever held &ge;1.5% of state land, plus a
+            curated canon of pivotal smaller states (France, Britain, Japan, the Aztecs&hellip;)
+            that a pure area cut would bury; the rest aggregate into &ldquo;Other states.&rdquo;
           </li>
           <li>
             Territorial extent is not power. Ming China mattered more than its area suggests;

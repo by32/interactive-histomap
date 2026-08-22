@@ -82,7 +82,7 @@ export default function Ribbon({ orientation }: { orientation: Orientation }) {
   }, [layers, timeline])
 
   const vertical = orientation === 'vertical'
-  const gutter = vertical ? 44 : 30 // axis labels along the time edge
+  const gutter = vertical ? 54 : 30 // axis labels along the time edge
   const padTime = 6
   const timeExtent = vertical ? dims.h : dims.w
   const breadthExtent = (vertical ? dims.w : dims.h) - gutter
@@ -197,10 +197,11 @@ export default function Ribbon({ orientation }: { orientation: Orientation }) {
                     .range([padTime, timeExtent - padTime])(year)
                 : pos(i)
             if (timeScaleMode === 'snapshot' && i < 0) return null
+            const tt = Math.max(10, Math.min((vertical ? dims.h : dims.w) - 6, t))
             return vertical ? (
               <g key={year}>
                 <line x1={gutter - 4} x2={dims.w} y1={t} y2={t} className="tick-line" />
-                <text x={gutter - 8} y={t} dy="0.32em" textAnchor="end" className="tick-text">
+                <text x={gutter - 8} y={tt} dy="0.32em" textAnchor="end" className="tick-text">
                   {formatYear(year)}
                 </text>
               </g>
@@ -238,7 +239,7 @@ export default function Ribbon({ orientation }: { orientation: Orientation }) {
             const px = layer.maxShare * breadthExtent
             if (px < 14) return null
             const mid = breadth((layer.points[layer.maxIdx].a0 + layer.points[layer.maxIdx].a1) / 2)
-            const t = pos(layer.maxIdx)
+            const t = Math.max(12, Math.min((vertical ? dims.h : dims.w) - 8, pos(layer.maxIdx)))
             const fill = luminance(layer.color) > 0.62 ? '#3a3226' : '#f7f1e0'
             const fontSize = Math.max(9, Math.min(13, px * 0.4))
             return (

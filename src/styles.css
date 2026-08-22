@@ -532,6 +532,26 @@ button {
   }
 }
 
+@media (max-width: 560px) {
+  .header {
+    gap: 8px;
+    padding: 0 10px;
+  }
+  .brand h1 {
+    font-size: 16px;
+  }
+  .search-box input {
+    width: 118px;
+  }
+  .about-btn {
+    padding: 4px 7px;
+    font-size: 12px;
+  }
+  .ribbon-title {
+    display: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
