@@ -16,6 +16,9 @@ dist-ssr
 test-results
 playwright-report
 
+# Local debug scripts
+*.local.mjs
+
 # Upstream dataset clones (kept out of the repo; see README data regeneration)
 .data-src
 
