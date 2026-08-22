@@ -10,7 +10,7 @@ import react from '@vitejs/plugin-react'
 // self-contained dist files at a stable path; MapView points setWorkerUrl
 // at them.
 const WORKER_FILES = ['maplibre-gl-worker.mjs', 'maplibre-gl-shared.mjs']
-const workerDir = () => path.resolve(__dirname, 'node_modules/maplibre-gl/dist')
+const workerDir = () => path.resolve(import.meta.dirname, 'node_modules/maplibre-gl/dist')
 
 function maplibreWorkerAssets(): Plugin {
   return {
