@@ -160,15 +160,18 @@ export function buildPosterSvg(timeline: Timeline, entities: EntityIndex): strin
     return posOf(i) + ROW_H * ((y - ys[i]) / (ys[i + 1] - ys[i]))
   }
   let lastNoteY = 0
-  for (const ev of events as { y: number; t: string }[]) {
+  for (const ev of events as { y: number; t: string; k?: string }[]) {
     if (ev.y < timeline.years[0]) continue
     const dotY = yearPos(ev.y)
     const noteY = Math.max(dotY, lastNoteY + 15)
     lastNoteY = noteY
+    const battle = ev.k === 'battle'
     parts.push(
-      `<circle cx="${GUTTER + STREAM_W + 10}" cy="${dotY.toFixed(1)}" r="2.6" fill="#b23a48"/>`,
+      battle
+        ? `<circle cx="${GUTTER + STREAM_W + 10}" cy="${dotY.toFixed(1)}" r="3" fill="${PARCHMENT}" stroke="#b23a48" stroke-width="1.6"/>`
+        : `<circle cx="${GUTTER + STREAM_W + 10}" cy="${dotY.toFixed(1)}" r="2.6" fill="#b23a48"/>`,
       `<line x1="${GUTTER + STREAM_W + 13}" y1="${dotY.toFixed(1)}" x2="${NOTES_X - 4}" y2="${noteY.toFixed(1)}" stroke="rgba(58,50,38,0.25)" stroke-width="0.6"/>`,
-      `<text x="${NOTES_X}" y="${(noteY + 3.4).toFixed(1)}" font-family="${SERIF}" font-size="10.5" fill="${INK}"><tspan fill="${INK_SOFT}">${esc(formatYear(ev.y))}</tspan>  ${esc(ev.t)}</text>`,
+      `<text x="${NOTES_X}" y="${(noteY + 3.4).toFixed(1)}" font-family="${SERIF}" font-size="10.5" fill="${INK}"><tspan fill="${INK_SOFT}">${esc(formatYear(ev.y))}</tspan>  ${battle ? '⚔ ' : ''}${esc(ev.t)}</text>`,
     )
   }
 

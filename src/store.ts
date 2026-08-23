@@ -15,10 +15,11 @@ interface HistomapState {
   timeScaleMode: TimeScaleMode
   aboutOpen: boolean
   showCities: boolean
+  showBattles: boolean
   /** hovered historical city (map) */
   hoveredCity: { n: string; f: number; t?: number; w?: string } | null
-  /** hovered event marker (ribbon) */
-  hoveredEvent: { y: number; t: string } | null
+  /** hovered event marker (ribbon or map) */
+  hoveredEvent: { y: number; t: string; k?: string } | null
   /** empire-focus mode: trace the selected polity across its whole history */
   focusOn: boolean
   setData: (timeline: Timeline, entities: EntityIndex) => void
@@ -33,6 +34,7 @@ interface HistomapState {
   setTimeScaleMode: (mode: TimeScaleMode) => void
   setAboutOpen: (open: boolean) => void
   setShowCities: (show: boolean) => void
+  setShowBattles: (show: boolean) => void
   setHoveredCity: (city: HistomapState['hoveredCity']) => void
   setHoveredEvent: (event: HistomapState['hoveredEvent']) => void
   setFocusOn: (on: boolean) => void
@@ -53,6 +55,7 @@ export const useStore = create<HistomapState>((set, get) => ({
   timeScaleMode: 'linear',
   aboutOpen: false,
   showCities: true,
+  showBattles: true,
   hoveredCity: null,
   hoveredEvent: null,
   focusOn: false,
@@ -81,6 +84,7 @@ export const useStore = create<HistomapState>((set, get) => ({
   setTimeScaleMode: (timeScaleMode) => set({ timeScaleMode }),
   setAboutOpen: (aboutOpen) => set({ aboutOpen }),
   setShowCities: (showCities) => set({ showCities }),
+  setShowBattles: (showBattles) => set({ showBattles }),
   setHoveredCity: (hoveredCity) => set({ hoveredCity }),
   setHoveredEvent: (hoveredEvent) => set({ hoveredEvent }),
   setFocusOn: (focusOn) => set({ focusOn }),

@@ -99,9 +99,10 @@ export default function AboutModal() {
             fix is logged in the repository&rsquo;s <strong>ERRATA.md</strong>.
           </li>
           <li>
-            The event notes along the ribbon and the historical-city dots are curated:
-            conventional dates from common reference works, with the full lists and policy in
-            the repository. Founding dates of ancient cities are traditional, not precise.
+            The event notes along the ribbon, the battle markers, and the historical-city
+            dots are curated: conventional dates and traditional sites from common reference
+            works, with the full lists and policy in the repository. Each battle appears on
+            the map at the snapshot nearest its year.
           </li>
           <li>
             Treat all of it as a visual aid for the shape of history, not a citable reference

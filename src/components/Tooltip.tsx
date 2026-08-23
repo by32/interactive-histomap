@@ -28,7 +28,10 @@ export default function Tooltip() {
   if (hoveredEvent) {
     return (
       <div className="tooltip" ref={ref}>
-        <strong>{formatYear(hoveredEvent.y)}</strong>
+        <strong>
+          {hoveredEvent.k === 'battle' && '⚔ '}
+          {formatYear(hoveredEvent.y)}
+        </strong>
         <div className="tooltip-sub">{hoveredEvent.t}</div>
       </div>
     )

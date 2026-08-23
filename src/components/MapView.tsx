@@ -12,6 +12,42 @@ import { useStore } from '../store'
 import { loadYear, prefetchAround } from '../data/loader'
 import { formatYear } from '../lib/format'
 import type { YearFeatureProps } from '../types'
+import events from '../data/events.json'
+
+interface HistoricalEvent {
+  y: number
+  t: string
+  e?: string
+  k?: string
+  c?: [number, number]
+}
+const BATTLES = (events as HistoricalEvent[]).filter((ev) => ev.k === 'battle' && ev.c)
+
+// crossed swords on a parchment disc, drawn at runtime so no glyph range is needed
+const battleIcon = (): ImageData => {
+  const s = 44
+  const canvas = document.createElement('canvas')
+  canvas.width = s
+  canvas.height = s
+  const ctx = canvas.getContext('2d')!
+  ctx.beginPath()
+  ctx.arc(s / 2, s / 2, 19, 0, Math.PI * 2)
+  ctx.fillStyle = '#f9f3e4'
+  ctx.fill()
+  ctx.lineWidth = 2.4
+  ctx.strokeStyle = 'rgba(58,50,38,0.75)'
+  ctx.stroke()
+  ctx.strokeStyle = '#b23a48'
+  ctx.lineWidth = 4
+  ctx.lineCap = 'round'
+  ctx.beginPath()
+  ctx.moveTo(14, 14)
+  ctx.lineTo(30, 30)
+  ctx.moveTo(30, 14)
+  ctx.lineTo(14, 30)
+  ctx.stroke()
+  return ctx.getImageData(0, 0, s, s)
+}
 
 // the worker files are served by the maplibre-worker-assets plugin (vite.config.ts)
 setWorkerUrl(`${import.meta.env.BASE_URL}maplibre-worker/maplibre-gl-worker.mjs`)
@@ -271,6 +307,30 @@ export default function MapView() {
           'text-halo-width': 1.1,
         },
       })
+      // battle markers at their moment in time
+      map.addImage('battle-icon', battleIcon(), { pixelRatio: 2 })
+      map.addSource('battles', { type: 'geojson', data: EMPTY })
+      map.addLayer({
+        id: 'battles-icon',
+        type: 'symbol',
+        source: 'battles',
+        layout: {
+          'icon-image': 'battle-icon',
+          'icon-size': ['interpolate', ['linear'], ['zoom'], 1, 0.62, 5, 1],
+          'icon-allow-overlap': true,
+        },
+      })
+      map.on('mousemove', 'battles-icon', (e: MapLayerMouseEvent) => {
+        const p = e.features?.[0]?.properties as HistoricalEvent | undefined
+        if (p) {
+          useStore.getState().setHoveredEvent({ y: p.y, t: p.t, k: 'battle' })
+          map.getCanvas().style.cursor = 'pointer'
+        }
+      })
+      map.on('mouseleave', 'battles-icon', () => {
+        useStore.getState().setHoveredEvent(null)
+        map.getCanvas().style.cursor = ''
+      })
       map.on('mousemove', 'cities-dot', (e: MapLayerMouseEvent) => {
         const p = e.features?.[0]?.properties as Place | undefined
         if (p) {
@@ -298,6 +358,12 @@ export default function MapView() {
         map.getCanvas().style.cursor = ''
       })
       map.on('click', (e: MapMouseEvent) => {
+        const battleHits = map.queryRenderedFeatures(e.point, { layers: ['battles-icon'] })
+        const battle = battleHits[0]?.properties as HistoricalEvent | undefined
+        if (battle?.e) {
+          useStore.getState().setSelected(battle.e)
+          return
+        }
         const cityHits = map.queryRenderedFeatures(e.point, { layers: ['cities-dot'] })
         const city = cityHits[0]?.properties as Place | undefined
         if (city?.w) {
@@ -403,6 +469,36 @@ export default function MapView() {
     map.setLayoutProperty('cities-label', 'visibility', visibility)
   }, [ready, showCities])
 
+  // battles surface at the snapshot nearest their year
+  const showBattles = useStore((s) => s.showBattles)
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !ready || !timeline) return
+    const nearest = (y: number): number => {
+      let best = 0
+      let bestDist = Infinity
+      timeline.years.forEach((yr, i) => {
+        const d = Math.abs(yr - y)
+        if (d < bestDist) {
+          bestDist = d
+          best = i
+        }
+      })
+      return best
+    }
+    const features = BATTLES.filter((ev) => nearest(ev.y) === yearIndex).map((ev) => ({
+      type: 'Feature' as const,
+      properties: ev,
+      geometry: { type: 'Point' as const, coordinates: ev.c! },
+    }))
+    ;(map.getSource('battles') as GeoJSONSource).setData({ type: 'FeatureCollection', features })
+  }, [ready, timeline, yearIndex])
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !ready) return
+    map.setLayoutProperty('battles-icon', 'visibility', showBattles ? 'visible' : 'none')
+  }, [ready, showBattles])
+
   // empire-focus: load the selected polity's extent from every era it exists
   const focusOn = useStore((s) => s.focusOn)
   const entities = useStore((s) => s.entities)
@@ -445,13 +541,22 @@ export default function MapView() {
           {year < 1650 && <span className="precision-chip">borders approximate</span>}
         </div>
       )}
-      <button
-        className={`cities-chip${showCities ? ' on' : ''}`}
-        onClick={() => useStore.getState().setShowCities(!showCities)}
-        title="Toggle historical cities (dots appear when a city exists; zoom in for names)"
-      >
-        ◉ cities
-      </button>
+      <div className="layer-chips">
+        <button
+          className={`cities-chip${showCities ? ' on' : ''}`}
+          onClick={() => useStore.getState().setShowCities(!showCities)}
+          title="Toggle historical cities (dots appear when a city exists; zoom in for names)"
+        >
+          ◉ cities
+        </button>
+        <button
+          className={`cities-chip${showBattles ? ' on' : ''}`}
+          onClick={() => useStore.getState().setShowBattles(!showBattles)}
+          title="Toggle battle markers (each appears at its moment in time)"
+        >
+          ⚔ battles
+        </button>
+      </div>
     </div>
   )
 }

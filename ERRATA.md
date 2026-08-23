@@ -81,10 +81,12 @@ before any processing so they are reproducible:
   state record: the ribbon's denominator is zeroed there, so streams begin at 4000 BC — where
   the dataset's substantive state record (and the linear axis break) starts. Without this, a
   75%-of-nothing sliver would paint Norte Chico as spanning the 5000 BC world.
-- **Events and cities are curated.** The margin-note events (~110) and the historical-cities
-  layer (the dataset's ~60 time-tagged places plus ~45 curated capitals in
-  `scripts/curation.json`) use conventional dates from common reference works; founding dates
-  of ancient cities are traditional, not precise.
+- **Events, battles and cities are curated.** The margin-note events (~135, of which ~40 are
+  decisive battles) and the historical-cities layer (the dataset's ~60 time-tagged places
+  plus ~45 curated capitals in `scripts/curation.json`) use conventional dates from common
+  reference works. Battle coordinates are approximate to the traditional site, each battle
+  marker appears at the snapshot nearest its year, and founding dates of ancient cities are
+  traditional, not precise.
 - **Hittites at 2000 BC.** The dataset shows a Hittite-labelled Anatolia at 2000 BC, about
   three centuries before the conventional Hittite Old Kingdom; we display the dataset as-is.
 - **Colonial territories** are colored by metropole family when the dataset labels them as
