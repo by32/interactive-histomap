@@ -255,6 +255,15 @@ button {
   font-size: 11px;
 }
 
+.speed-btn {
+  width: auto;
+  min-width: 26px;
+  padding: 0 5px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+}
+
 .scale-toggle {
   font-size: 11px;
   color: var(--ink-soft);

@@ -10,6 +10,8 @@ interface HistomapState {
   hoveredId: string | null
   selectedId: string | null
   playing: boolean
+  /** dwell per snapshot during playback, ms */
+  speedMs: number
   timeScaleMode: TimeScaleMode
   aboutOpen: boolean
   setData: (timeline: Timeline, entities: EntityIndex) => void
@@ -20,6 +22,7 @@ interface HistomapState {
   setSelected: (id: string | null) => void
   setPlaying: (playing: boolean) => void
   togglePlay: () => void
+  cycleSpeed: () => void
   setTimeScaleMode: (mode: TimeScaleMode) => void
   setAboutOpen: (open: boolean) => void
 }
@@ -35,6 +38,7 @@ export const useStore = create<HistomapState>((set, get) => ({
   hoveredId: null,
   selectedId: null,
   playing: false,
+  speedMs: 1500,
   timeScaleMode: 'linear',
   aboutOpen: false,
   setData: (timeline, entities) => set({ timeline, entities }),
@@ -53,6 +57,11 @@ export const useStore = create<HistomapState>((set, get) => ({
     } else {
       set({ playing: !playing })
     }
+  },
+  cycleSpeed: () => {
+    const order = [3000, 1500, 700]
+    const i = order.indexOf(get().speedMs)
+    set({ speedMs: order[(i + 1) % order.length] })
   },
   setTimeScaleMode: (timeScaleMode) => set({ timeScaleMode }),
   setAboutOpen: (aboutOpen) => set({ aboutOpen }),
