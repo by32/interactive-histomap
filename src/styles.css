@@ -55,9 +55,40 @@ button {
 
 .main {
   display: grid;
-  grid-template-columns: var(--ribbon-w) 1fr;
+  grid-template-columns: var(--ribbon-w) 8px 1fr;
   grid-template-rows: minmax(0, 1fr);
   min-height: 0;
+}
+
+.split-divider {
+  background: var(--parchment-deep);
+  display: grid;
+  place-items: center;
+  touch-action: none;
+  user-select: none;
+  transition: background 0.12s ease;
+}
+.split-divider:hover,
+.split-divider:active {
+  background: var(--ink-faint);
+}
+.split-divider.v {
+  cursor: col-resize;
+}
+.split-divider.h {
+  cursor: row-resize;
+}
+.divider-grip {
+  border-radius: 2px;
+  background: var(--ink-faint);
+}
+.split-divider.v .divider-grip {
+  width: 3px;
+  height: 34px;
+}
+.split-divider.h .divider-grip {
+  width: 34px;
+  height: 3px;
 }
 
 .map-wrap {
@@ -328,7 +359,7 @@ button {
 .dividers {
   pointer-events: none;
 }
-.divider {
+.dividers path {
   fill: none;
   stroke: rgba(58, 50, 38, 0.4);
   stroke-width: 0.9;
@@ -368,7 +399,25 @@ button {
   stroke-width: 1.4;
   stroke-dasharray: 4 3;
 }
-.playhead circle {
+.playhead .slider-track {
+  stroke: rgba(58, 50, 38, 0.22);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  stroke-dasharray: none;
+}
+.slider-thumb {
+  pointer-events: auto;
+  cursor: grab;
+}
+.slider-thumb:active {
+  cursor: grabbing;
+}
+.thumb-outer {
+  fill: var(--panel);
+  stroke: var(--ink);
+  stroke-width: 1.6;
+}
+.thumb-inner {
   fill: var(--ink);
 }
 
@@ -614,15 +663,18 @@ button {
 @media (max-width: 900px) {
   .main {
     grid-template-columns: 1fr;
-    grid-template-rows: 1fr clamp(200px, 34vh, 320px);
-  }
-  .ribbon-panel {
-    order: 2;
-    border-right: none;
-    border-top: 1px solid var(--ink-hairline);
+    grid-template-rows: minmax(0, 1fr) 8px clamp(200px, 34vh, 320px);
   }
   .map-wrap {
     order: 1;
+  }
+  .split-divider {
+    order: 2;
+  }
+  .ribbon-panel {
+    order: 3;
+    border-right: none;
+    border-top: 1px solid var(--ink-hairline);
   }
   .tagline {
     display: none;

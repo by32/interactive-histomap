@@ -483,18 +483,48 @@ export default function Ribbon({ orientation }: { orientation: Orientation }) {
           })}
         </g>
 
-        {/* playhead */}
-        {vertical ? (
-          <g className="playhead" transform={`translate(0 ${playheadPos})`}>
-            <line x1={gutter - 4} x2={dims.w} y1={0} y2={0} />
-            <circle cx={gutter - 4} cy={0} r={3} />
-          </g>
-        ) : (
-          <g className="playhead" transform={`translate(${playheadPos} 0)`}>
-            <line y1={gutter - 4} y2={dims.h} x1={0} x2={0} />
-            <circle cy={gutter - 4} cx={0} r={3} />
-          </g>
-        )}
+        {/* time slider: a track along the axis with a grabbable thumb at the playhead */}
+        {(() => {
+          const sliderAria = {
+            role: 'slider' as const,
+            'aria-label': 'Year',
+            'aria-valuemin': timeline.years[0],
+            'aria-valuemax': timeline.years[timeline.years.length - 1],
+            'aria-valuenow': timeline.years[yearIndex],
+            'aria-valuetext': formatYear(timeline.years[yearIndex]),
+          }
+          return vertical ? (
+            <g className="playhead">
+              <line
+                className="slider-track"
+                x1={gutter - 4}
+                x2={gutter - 4}
+                y1={pos(0)}
+                y2={pos(timeline.years.length - 1)}
+              />
+              <line x1={gutter - 4} x2={dims.w} y1={playheadPos} y2={playheadPos} />
+              <g className="slider-thumb" transform={`translate(${gutter - 4} ${playheadPos})`} {...sliderAria}>
+                <circle className="thumb-outer" r={8} />
+                <circle className="thumb-inner" r={3.2} />
+              </g>
+            </g>
+          ) : (
+            <g className="playhead">
+              <line
+                className="slider-track"
+                y1={gutter - 4}
+                y2={gutter - 4}
+                x1={pos(0)}
+                x2={pos(timeline.years.length - 1)}
+              />
+              <line y1={gutter - 4} y2={dims.h} x1={playheadPos} x2={playheadPos} />
+              <g className="slider-thumb" transform={`translate(${playheadPos} ${gutter - 4})`} {...sliderAria}>
+                <circle className="thumb-outer" r={8} />
+                <circle className="thumb-inner" r={3.2} />
+              </g>
+            </g>
+          )
+        })()}
       </svg>
     </div>
   )

@@ -1,19 +1,9 @@
-import { useEffect, useState } from 'react'
-import Ribbon, { type Orientation } from './Ribbon'
+import Ribbon from './Ribbon'
 import TimeControls from './TimeControls'
-
-const QUERY = '(max-width: 900px)'
+import { useOrientation } from '../lib/useOrientation'
 
 export default function RibbonPanel() {
-  const [orientation, setOrientation] = useState<Orientation>(() =>
-    window.matchMedia(QUERY).matches ? 'horizontal' : 'vertical',
-  )
-  useEffect(() => {
-    const mq = window.matchMedia(QUERY)
-    const onChange = () => setOrientation(mq.matches ? 'horizontal' : 'vertical')
-    mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
-  }, [])
+  const orientation = useOrientation()
 
   return (
     <aside className="ribbon-panel" aria-label="Histomap timeline">
