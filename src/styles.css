@@ -305,8 +305,24 @@ button {
 .stream-label {
   font-family: var(--font-display);
   paint-order: stroke;
-  stroke: rgba(0, 0, 0, 0.18);
-  stroke-width: 0.6;
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+  transition: opacity 0.15s ease;
+}
+.ribbon[data-has-selection] .stream-label {
+  opacity: 0.3;
+}
+.ribbon[data-has-selection] .stream-label.selected-label {
+  opacity: 1;
+}
+
+.dividers {
+  pointer-events: none;
+}
+.divider {
+  fill: none;
+  stroke: rgba(58, 50, 38, 0.4);
+  stroke-width: 0.9;
 }
 
 .tick-line {

@@ -298,19 +298,21 @@ fs.writeFileSync(path.join(ROOT, 'public', 'data', 'timeline.json'), JSON.string
 
 // ---- entities.json ------------------------------------------------------
 const entities = {}
+const shortNames = curation.shortNames ?? {}
 for (const r of registry.values()) {
   if (r.id === '_unclaimed') continue
   entities[r.id] = {
     n: r.label,
     k: r.kind,
     c: r.color,
+    ...(shortNames[r.id] ? { s: shortNames[r.id] } : {}),
     ...(r.family ? { f: r.family } : {}),
     ...(curation.entities[r.id]?.wiki ? { w: curation.entities[r.id].wiki } : {}),
     present: YEARS.map((_, yi) => yi).filter((yi) => (r.perYear.get(yi) ?? 0) > 0.5),
     peak: Math.round(Math.max(...r.perYear.values())),
   }
 }
-entities._other = { n: 'Other states', k: 's', c: '#b9a88a', present: [], peak: 0 }
+entities._other = { n: 'Other states', s: 'Other states', k: 's', c: '#b9a88a', present: [], peak: 0 }
 fs.writeFileSync(path.join(ROOT, 'public', 'data', 'entities.json'), JSON.stringify(entities))
 
 // ---- report -------------------------------------------------------------

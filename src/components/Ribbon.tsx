@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { area, curveMonotoneX, curveMonotoneY } from 'd3-shape'
+import { area, line, curveMonotoneX, curveMonotoneY } from 'd3-shape'
 import { scaleLinear, scalePoint } from 'd3-scale'
 import { useStore } from '../store'
 import { formatYear } from '../lib/format'
@@ -25,6 +25,29 @@ const luminance = (hex: string): number => {
 }
 
 const TICK_YEARS = [-2000, -1500, -1000, -500, -1, 500, 1000, 1500, 2010]
+
+const CHAR_W = 0.55 // rough serif advance per px of font size
+const MIN_FONT = 8.5
+const MAX_FONT = 12.5
+const MIN_BAND_PX = 11
+
+interface Box {
+  x0: number
+  y0: number
+  x1: number
+  y1: number
+}
+const intersects = (a: Box, b: Box) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1
+
+interface PlacedLabel {
+  id: string
+  text: string
+  x: number
+  y: number
+  fontSize: number
+  fill: string
+  halo: string
+}
 
 export default function Ribbon({ orientation }: { orientation: Orientation }) {
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -63,7 +86,7 @@ export default function Ribbon({ orientation }: { orientation: Orientation }) {
         }
       }
       const info = entities[id]
-      return { id, color: info?.c ?? '#b9a88a', label: info?.n ?? id, points, maxIdx, maxShare }
+      return { id, color: info?.c ?? '#b9a88a', label: info?.s ?? info?.n ?? id, points, maxIdx, maxShare }
     })
   }, [timeline, entities])
 
@@ -119,6 +142,82 @@ export default function Ribbon({ orientation }: { orientation: Orientation }) {
       .curve(curveMonotoneX)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vertical, pos, breadthExtent, gutter])
+
+  // collision-aware label placement: biggest streams claim space first, each
+  // trying its widest snapshots until a spot fits its band and hits nothing
+  const placedLabels = useMemo<PlacedLabel[]>(() => {
+    if (!timeline || breadthExtent <= 0 || timeExtent <= 0) return []
+    const placed: Box[] = []
+    const out: PlacedLabel[] = []
+    const byProminence = [...stacked].sort((a, b) => b.maxShare - a.maxShare)
+    for (const layer of byProminence) {
+      const text = layer.label.replace(/\s*\(.*\)$/, '')
+      const candidates = layer.points
+        .map((p, i) => ({ i, bandPx: (p.a1 - p.a0) * breadthExtent }))
+        .filter((c) => c.bandPx >= MIN_BAND_PX)
+        .sort((a, b) => b.bandPx - a.bandPx)
+        .slice(0, 12)
+      // first insist the label fits inside its band, then allow a haloed spill
+      let done = false
+      for (const tolerance of [1.25, 2.1]) {
+        for (const { i, bandPx } of candidates) {
+          let fontSize: number
+          if (vertical) {
+            fontSize = Math.max(MIN_FONT, Math.min(MAX_FONT, bandPx * 0.5))
+            if (text.length * fontSize * CHAR_W > bandPx * tolerance)
+              fontSize = (bandPx * tolerance) / (text.length * CHAR_W)
+            if (fontSize < MIN_FONT) continue
+          } else {
+            fontSize = Math.max(MIN_FONT, Math.min(MAX_FONT, bandPx * 0.6))
+            if (fontSize > bandPx * 0.9) fontSize = bandPx * 0.9
+            if (fontSize < MIN_FONT) continue
+          }
+          const textW = text.length * fontSize * CHAR_W
+          const p = layer.points[i]
+          const t = Math.max(12, Math.min(timeExtent - 8, pos(i)))
+          let m = breadth((p.a0 + p.a1) / 2)
+          const along = vertical ? textW : fontSize // box extent along the breadth axis
+          if (along > breadthExtent) continue
+          m = Math.max(gutter + 2 + along / 2, Math.min(gutter + breadthExtent - 2 - along / 2, m))
+          const box: Box = vertical
+            ? { x0: m - textW / 2 - 3, x1: m + textW / 2 + 3, y0: t - fontSize / 2 - 2, y1: t + fontSize / 2 + 2 }
+            : { x0: t - textW / 2 - 3, x1: t + textW / 2 + 3, y0: m - fontSize / 2 - 2, y1: m + fontSize / 2 + 2 }
+          if (placed.some((b) => intersects(b, box))) continue
+          placed.push(box)
+          const light = luminance(layer.color) > 0.62
+          out.push({
+            id: layer.id,
+            text,
+            x: vertical ? m : t,
+            y: vertical ? t : m,
+            fontSize,
+            fill: light ? '#3a3226' : '#f7f1e0',
+            halo: light ? 'rgba(244,236,217,0.55)' : 'rgba(40,32,20,0.45)',
+          })
+          done = true
+          break
+        }
+        if (done) break
+      }
+    }
+    return out
+  }, [stacked, timeline, vertical, pos, breadthExtent, timeExtent, gutter])
+
+  // family boundaries, echoing the original's grouped bands
+  const dividers = useMemo<string[]>(() => {
+    if (!timeline || !entities) return []
+    const boundary = vertical
+      ? line<StackedPoint>().y((_, i) => pos(i)).x((d) => breadth(d.a0)).curve(curveMonotoneY)
+      : line<StackedPoint>().x((_, i) => pos(i)).y((d) => breadth(d.a0)).curve(curveMonotoneX)
+    const paths: string[] = []
+    for (let k = 1; k < stacked.length; k++) {
+      const fam = entities[stacked[k].id]?.f ?? `#${stacked[k].id}`
+      const prev = entities[stacked[k - 1].id]?.f ?? `#${stacked[k - 1].id}`
+      if (fam !== prev) paths.push(boundary(stacked[k].points) ?? '')
+    }
+    return paths
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stacked, entities, timeline, vertical, pos, breadthExtent, gutter])
 
   // scrub interaction: drag anywhere sets the year; a click also selects the band
   const drag = useRef<{ start: [number, number]; moved: boolean } | null>(null)
@@ -233,31 +332,30 @@ export default function Ribbon({ orientation }: { orientation: Orientation }) {
           })}
         </g>
 
-        {/* in-stream labels at each stream's widest moment */}
+        <g className="dividers">
+          {dividers.map((d, i) => (
+            <path key={i} d={d} className="divider" />
+          ))}
+        </g>
+
+        {/* collision-free in-stream labels */}
         <g className="stream-labels">
-          {stacked.map((layer) => {
-            const px = layer.maxShare * breadthExtent
-            if (px < 14) return null
-            const mid = breadth((layer.points[layer.maxIdx].a0 + layer.points[layer.maxIdx].a1) / 2)
-            const t = Math.max(12, Math.min((vertical ? dims.h : dims.w) - 8, pos(layer.maxIdx)))
-            const fill = luminance(layer.color) > 0.62 ? '#3a3226' : '#f7f1e0'
-            const fontSize = Math.max(9, Math.min(13, px * 0.4))
-            return (
-              <text
-                key={layer.id}
-                x={vertical ? mid : t}
-                y={vertical ? t : mid}
-                dy="0.32em"
-                textAnchor="middle"
-                fill={fill}
-                fontSize={fontSize}
-                className="stream-label"
-                data-id={layer.id}
-              >
-                {layer.label}
-              </text>
-            )
-          })}
+          {placedLabels.map((label) => (
+            <text
+              key={label.id}
+              x={label.x}
+              y={label.y}
+              dy="0.32em"
+              textAnchor="middle"
+              fill={label.fill}
+              stroke={label.halo}
+              fontSize={label.fontSize}
+              className={label.id === selectedId ? 'stream-label selected-label' : 'stream-label'}
+              data-id={label.id}
+            >
+              {label.text}
+            </text>
+          ))}
         </g>
 
         {/* playhead */}

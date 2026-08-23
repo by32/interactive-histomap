@@ -20,6 +20,8 @@ export type EntityKind = 's' | 'c' | 'u' // state | culture/zone | unclaimed
 
 export interface EntityInfo {
   n: string
+  /** compact display name for tight ribbon labels */
+  s?: string
   k: EntityKind
   c: string
   /** family id, curated states only */
