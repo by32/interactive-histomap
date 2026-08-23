@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "license": "GPL-3.0-or-later",
+  "homepage": "https://by32.github.io/interactive-histomap/",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
