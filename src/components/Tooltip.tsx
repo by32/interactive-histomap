@@ -1,10 +1,12 @@
 import { useEffect, useRef } from 'react'
 import { useStore } from '../store'
-import { formatArea, formatShare } from '../lib/format'
+import { formatArea, formatShare, formatYear } from '../lib/format'
 
 export default function Tooltip() {
   const ref = useRef<HTMLDivElement>(null)
   const hoveredId = useStore((s) => s.hoveredId)
+  const hoveredCity = useStore((s) => s.hoveredCity)
+  const hoveredEvent = useStore((s) => s.hoveredEvent)
   const entities = useStore((s) => s.entities)
   const timeline = useStore((s) => s.timeline)
   const yearIndex = useStore((s) => s.yearIndex)
@@ -21,8 +23,28 @@ export default function Tooltip() {
     }
     window.addEventListener('pointermove', move)
     return () => window.removeEventListener('pointermove', move)
-  }, [hoveredId])
+  }, [hoveredId, hoveredCity, hoveredEvent])
 
+  if (hoveredEvent) {
+    return (
+      <div className="tooltip" ref={ref}>
+        <strong>{formatYear(hoveredEvent.y)}</strong>
+        <div className="tooltip-sub">{hoveredEvent.t}</div>
+      </div>
+    )
+  }
+  if (hoveredCity) {
+    return (
+      <div className="tooltip" ref={ref}>
+        <strong>{hoveredCity.n}</strong>
+        <div className="tooltip-sub">
+          inhabited from {formatYear(hoveredCity.f)}
+          {hoveredCity.t !== undefined && ` to ${formatYear(hoveredCity.t)}`}
+          {hoveredCity.w && ' · click for Wikipedia'}
+        </div>
+      </div>
+    )
+  }
   if (!hoveredId || !entities) return null
   const info = entities[hoveredId]
   if (!info) return null

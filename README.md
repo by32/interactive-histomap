@@ -23,7 +23,13 @@ This version keeps the ribbon and adds the map:
   cultural/tribal zones render on the map but are excluded from the ribbon's denominator —
   all of it disclosed in the in-app *About* panel and [ERRATA.md](ERRATA.md).
 - Hover and click either view (they stay in sync), search ~2,300 polities and cultures,
-  play through four millennia, share any moment via the URL hash (`#y=1279&e=mongol-empire`).
+  play through twelve millennia at three speeds, share any moment via the URL hash
+  (`#y=1279&e=mongol-empire`).
+- **Named directly on the map** (self-hosted glyphs), with a toggleable layer of ~105
+  time-tagged **historical cities**, ~110 curated **event notes** along the ribbon's margin —
+  the 1931 original's annotations — an **empire-focus mode** that traces a selected polity's
+  footprint across every era it existed (with an area-over-time sparkline), and a one-click
+  **poster export**: the whole ribbon as a printable wall chart.
 
 ## Development
 

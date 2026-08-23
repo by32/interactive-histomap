@@ -1,6 +1,48 @@
 import { useStore } from '../store'
 import { formatArea, formatShare, formatYear, precisionLabel, wikipediaUrl } from '../lib/format'
 
+function Sparkline({ id }: { id: string }) {
+  const timeline = useStore((s) => s.timeline)
+  const yearIndex = useStore((s) => s.yearIndex)
+  const setYearIndex = useStore((s) => s.setYearIndex)
+  const entities = useStore((s) => s.entities)
+  const series = timeline?.series[id]
+  if (!timeline || !series) return null
+  const max = Math.max(...series)
+  if (max <= 0) return null
+  const W = 232
+  const H = 44
+  const n = series.length
+  const x = (i: number) => (i / (n - 1)) * W
+  const yOf = (v: number) => H - 3 - (v / max) * (H - 8)
+  const path =
+    `M0,${H} ` + series.map((v, i) => `L${x(i).toFixed(1)},${yOf(v).toFixed(1)}`).join(' ') + ` L${W},${H} Z`
+  return (
+    <svg
+      className="sparkline"
+      viewBox={`0 0 ${W} ${H}`}
+      role="img"
+      aria-label="Territorial extent across all snapshots — click to jump in time"
+      onClick={(e) => {
+        const rect = e.currentTarget.getBoundingClientRect()
+        const i = Math.round(((e.clientX - rect.left) / rect.width) * (n - 1))
+        setYearIndex(i)
+      }}
+    >
+      <path d={path} fill={entities?.[id]?.c ?? '#b9a88a'} opacity={0.65} />
+      <line
+        x1={x(yearIndex)}
+        x2={x(yearIndex)}
+        y1={2}
+        y2={H}
+        stroke="var(--ink)"
+        strokeWidth={1.2}
+        strokeDasharray="3 2"
+      />
+    </svg>
+  )
+}
+
 export default function InfoPanel() {
   const selectedId = useStore((s) => s.selectedId)
   const entities = useStore((s) => s.entities)
@@ -8,6 +50,8 @@ export default function InfoPanel() {
   const yearIndex = useStore((s) => s.yearIndex)
   const currentFeatures = useStore((s) => s.currentFeatures)
   const setSelected = useStore((s) => s.setSelected)
+  const focusOn = useStore((s) => s.focusOn)
+  const setFocusOn = useStore((s) => s.setFocusOn)
 
   if (!selectedId || !entities || !timeline) return null
   const info = entities[selectedId]
@@ -73,9 +117,19 @@ export default function InfoPanel() {
         <dt>Peak extent</dt>
         <dd>{formatArea(info.peak)}</dd>
       </dl>
-      <a className="wiki-link" href={wikipediaUrl(info)} target="_blank" rel="noreferrer">
-        Read on Wikipedia ↗
-      </a>
+      <Sparkline id={selectedId} />
+      <div className="info-actions">
+        <button
+          className={`focus-btn${focusOn ? ' on' : ''}`}
+          onClick={() => setFocusOn(!focusOn)}
+          title="Trace this polity's footprint across every era it existed"
+        >
+          {focusOn ? '✦ exit focus' : '✦ focus'}
+        </button>
+        <a className="wiki-link" href={wikipediaUrl(info)} target="_blank" rel="noreferrer">
+          Read on Wikipedia ↗
+        </a>
+      </div>
     </section>
   )
 }

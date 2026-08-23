@@ -3,18 +3,26 @@ import type { FeatureCollection } from 'geojson'
 import type { Topology, GeometryCollection } from 'topojson-specification'
 import type { Timeline } from '../types'
 
-const cache = new Map<number, Promise<FeatureCollection>>()
+export interface YearData {
+  world: FeatureCollection
+  labels: FeatureCollection
+}
 
-export function loadYear(timeline: Timeline, yearIndex: number): Promise<FeatureCollection> {
+const cache = new Map<number, Promise<YearData>>()
+
+export function loadYear(timeline: Timeline, yearIndex: number): Promise<YearData> {
   let promise = cache.get(yearIndex)
   if (!promise) {
     const year = timeline.years[yearIndex]
     promise = fetch(`${import.meta.env.BASE_URL}data/years/${year}.json`)
       .then((res) => {
         if (!res.ok) throw new Error(`Failed to load year ${year}: HTTP ${res.status}`)
-        return res.json() as Promise<Topology<{ world: GeometryCollection }>>
+        return res.json() as Promise<Topology<{ world: GeometryCollection; labels: GeometryCollection }>>
       })
-      .then((topo) => feature(topo, topo.objects.world) as FeatureCollection)
+      .then((topo) => ({
+        world: feature(topo, topo.objects.world) as FeatureCollection,
+        labels: feature(topo, topo.objects.labels) as FeatureCollection,
+      }))
     cache.set(yearIndex, promise)
     promise.catch(() => cache.delete(yearIndex))
   }

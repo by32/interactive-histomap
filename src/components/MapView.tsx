@@ -40,8 +40,33 @@ function graticule(): FeatureCollection {
 
 const BLANK_STYLE: StyleSpecification = {
   version: 8,
+  glyphs: `${location.origin}${import.meta.env.BASE_URL}fonts/{fontstack}/{range}.pbf`,
   sources: {},
   layers: [{ id: 'bg', type: 'background', paint: { 'background-color': OCEAN } }],
+}
+
+const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
+
+interface Place {
+  n: string
+  x: number
+  y: number
+  f: number
+  t?: number
+  w?: string
+}
+
+const bboxOf = (fc: FeatureCollection): [[number, number], [number, number]] | null => {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+  const walk = (c: unknown): void => {
+    if (typeof (c as number[])[0] === 'number') {
+      const [x, y] = c as [number, number]
+      x0 = Math.min(x0, x); x1 = Math.max(x1, x)
+      y0 = Math.min(y0, y); y1 = Math.max(y1, y)
+    } else for (const child of c as unknown[]) walk(child)
+  }
+  for (const f of fc.features) if (f.geometry && 'coordinates' in f.geometry) walk(f.geometry.coordinates)
+  return x0 === Infinity ? null : [[x0, y0], [x1, y1]]
 }
 
 const fillOpacity = (selectedId: string | null): unknown =>
@@ -154,6 +179,109 @@ export default function MapView() {
         filter: ['==', ['get', 'id'], ''],
         paint: { 'line-color': INK, 'line-width': 2.2 },
       })
+      // empire-focus ghost trace: the selected polity's extent in every era
+      map.addSource('focus-ghost', { type: 'geojson', data: EMPTY })
+      map.addLayer(
+        {
+          id: 'focus-ghost-fill',
+          type: 'fill',
+          source: 'focus-ghost',
+          paint: { 'fill-color': ['get', 'c'], 'fill-opacity': 0.13 },
+        },
+        'polities-selected',
+      )
+      map.addLayer(
+        {
+          id: 'focus-ghost-line',
+          type: 'line',
+          source: 'focus-ghost',
+          paint: { 'line-color': ['get', 'c'], 'line-width': 0.7, 'line-opacity': 0.55 },
+        },
+        'polities-selected',
+      )
+      // polity name labels (interior anchors precomputed by the pipeline)
+      map.addSource('polity-labels', { type: 'geojson', data: EMPTY })
+      map.addLayer({
+        id: 'labels-cultures',
+        type: 'symbol',
+        source: 'polity-labels',
+        filter: ['all', ['==', ['get', 'k'], 'c'], ['>=', ['get', 'a'], 400000]],
+        layout: {
+          'text-field': ['coalesce', ['get', 's'], ['get', 'n']],
+          'text-font': ['Noto Sans Regular'],
+          'text-size': ['interpolate', ['linear'], ['get', 'a'], 400000, 8.5, 6000000, 10.5],
+          'text-letter-spacing': 0.06,
+          'text-max-width': 7,
+        },
+        paint: {
+          'text-color': 'rgba(96,82,60,0.8)',
+          'text-halo-color': 'rgba(244,236,217,0.7)',
+          'text-halo-width': 1,
+        },
+      })
+      map.addLayer({
+        id: 'labels-states',
+        type: 'symbol',
+        source: 'polity-labels',
+        filter: ['all', ['==', ['get', 'k'], 's'], ['>=', ['get', 'a'], 30000]],
+        layout: {
+          'text-field': ['coalesce', ['get', 's'], ['get', 'n']],
+          'text-font': ['Noto Sans Regular'],
+          'text-size': ['interpolate', ['linear'], ['get', 'a'], 30000, 8.5, 1000000, 11, 8000000, 15],
+          'symbol-sort-key': ['*', -1, ['get', 'a']],
+          'text-max-width': 7,
+        },
+        paint: {
+          'text-color': INK,
+          'text-halo-color': 'rgba(249,243,228,0.85)',
+          'text-halo-width': 1.3,
+        },
+      })
+      // historical cities
+      map.addSource('cities', { type: 'geojson', data: EMPTY })
+      map.addLayer({
+        id: 'cities-dot',
+        type: 'circle',
+        source: 'cities',
+        minzoom: 1.1,
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 1.1, 1.7, 5, 3.4],
+          'circle-color': INK,
+          'circle-stroke-color': '#f4ecd9',
+          'circle-stroke-width': 0.8,
+          'circle-opacity': 0.85,
+        },
+      })
+      map.addLayer({
+        id: 'cities-label',
+        type: 'symbol',
+        source: 'cities',
+        minzoom: 2.4,
+        layout: {
+          'text-field': ['get', 'n'],
+          'text-font': ['Noto Sans Regular'],
+          'text-size': 9.5,
+          'text-anchor': 'top',
+          'text-offset': [0, 0.35],
+          'text-optional': false,
+        },
+        paint: {
+          'text-color': '#4a3f2e',
+          'text-halo-color': 'rgba(249,243,228,0.9)',
+          'text-halo-width': 1.1,
+        },
+      })
+      map.on('mousemove', 'cities-dot', (e: MapLayerMouseEvent) => {
+        const p = e.features?.[0]?.properties as Place | undefined
+        if (p) {
+          useStore.getState().setHoveredCity({ n: p.n, f: p.f, t: p.t, w: p.w })
+          map.getCanvas().style.cursor = 'pointer'
+        }
+      })
+      map.on('mouseleave', 'cities-dot', () => {
+        useStore.getState().setHoveredCity(null)
+        map.getCanvas().style.cursor = ''
+      })
 
       let raf = 0
       map.on('mousemove', 'polities-fill', (e: MapLayerMouseEvent) => {
@@ -170,6 +298,16 @@ export default function MapView() {
         map.getCanvas().style.cursor = ''
       })
       map.on('click', (e: MapMouseEvent) => {
+        const cityHits = map.queryRenderedFeatures(e.point, { layers: ['cities-dot'] })
+        const city = cityHits[0]?.properties as Place | undefined
+        if (city?.w) {
+          window.open(
+            `https://en.wikipedia.org/wiki/${encodeURIComponent(city.w.replace(/ /g, '_'))}`,
+            '_blank',
+            'noreferrer',
+          )
+          return
+        }
         const hits = map.queryRenderedFeatures(e.point, { layers: ['polities-fill'] })
         const id = (hits[0]?.properties?.id as string) ?? null
         const { selectedId: current, setSelected } = useStore.getState()
@@ -192,11 +330,12 @@ export default function MapView() {
     if (!map || !ready || !timeline) return
     let cancelled = false
     loadYear(timeline, yearIndex)
-      .then((fc) => {
+      .then((data) => {
         if (cancelled || !mapRef.current) return
-        ;(map.getSource('polities') as GeoJSONSource).setData(fc)
+        ;(map.getSource('polities') as GeoJSONSource).setData(data.world)
+        ;(map.getSource('polity-labels') as GeoJSONSource).setData(data.labels)
         const byId = new Map<string, YearFeatureProps>()
-        for (const f of fc.features) {
+        for (const f of data.world.features) {
           const props = f.properties as unknown as YearFeatureProps
           byId.set(props.id, props)
         }
@@ -231,6 +370,73 @@ export default function MapView() {
     map.setPaintProperty('polities-fill', 'fill-opacity', fillOpacity(selectedId) as never)
   }, [ready, selectedId])
 
+  // historical cities visible at the current year
+  const placesRef = useRef<Place[] | null>(null)
+  const [placesLoaded, setPlacesLoaded] = useState(false)
+  useEffect(() => {
+    fetch(`${import.meta.env.BASE_URL}data/places.json`)
+      .then((r) => r.json())
+      .then((places: Place[]) => {
+        placesRef.current = places
+        setPlacesLoaded(true)
+      })
+      .catch(() => {})
+  }, [])
+  const showCities = useStore((s) => s.showCities)
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !ready || !placesLoaded || year === undefined) return
+    const features = (placesRef.current ?? [])
+      .filter((p) => year >= p.f && (p.t === undefined || year <= p.t))
+      .map((p) => ({
+        type: 'Feature' as const,
+        properties: p,
+        geometry: { type: 'Point' as const, coordinates: [p.x, p.y] },
+      }))
+    ;(map.getSource('cities') as GeoJSONSource).setData({ type: 'FeatureCollection', features })
+  }, [ready, placesLoaded, year])
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !ready) return
+    const visibility = showCities ? 'visible' : 'none'
+    map.setLayoutProperty('cities-dot', 'visibility', visibility)
+    map.setLayoutProperty('cities-label', 'visibility', visibility)
+  }, [ready, showCities])
+
+  // empire-focus: load the selected polity's extent from every era it exists
+  const focusOn = useStore((s) => s.focusOn)
+  const entities = useStore((s) => s.entities)
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !ready) return
+    const source = map.getSource('focus-ghost') as GeoJSONSource | undefined
+    if (!focusOn || !selectedId || !timeline || !entities) {
+      source?.setData(EMPTY)
+      return
+    }
+    let cancelled = false
+    let idxs = entities[selectedId]?.present ?? []
+    if (idxs.length > 24) {
+      const step = (idxs.length - 1) / 23
+      idxs = Array.from({ length: 24 }, (_, i) => idxs[Math.round(i * step)])
+    }
+    Promise.all(idxs.map((i) => loadYear(timeline, i)))
+      .then((years) => {
+        if (cancelled || !mapRef.current) return
+        const features = years.flatMap((d) =>
+          d.world.features.filter((f) => (f.properties as { id?: string }).id === selectedId),
+        )
+        const fc: FeatureCollection = { type: 'FeatureCollection', features }
+        source?.setData(fc)
+        const bounds = bboxOf(fc)
+        if (bounds) map.fitBounds(bounds, { padding: 70, duration: 900, maxZoom: 4.5 })
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [ready, focusOn, selectedId, timeline, entities])
+
   return (
     <div className="map-view" ref={containerRef}>
       {year !== undefined && (
@@ -239,6 +445,13 @@ export default function MapView() {
           {year < 1650 && <span className="precision-chip">borders approximate</span>}
         </div>
       )}
+      <button
+        className={`cities-chip${showCities ? ' on' : ''}`}
+        onClick={() => useStore.getState().setShowCities(!showCities)}
+        title="Toggle historical cities (dots appear when a city exists; zoom in for names)"
+      >
+        ◉ cities
+      </button>
     </div>
   )
 }

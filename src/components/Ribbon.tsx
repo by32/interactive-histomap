@@ -3,8 +3,16 @@ import { area, line, curveMonotoneX, curveMonotoneY } from 'd3-shape'
 import { scaleLinear, scalePoint } from 'd3-scale'
 import { useStore } from '../store'
 import { formatYear } from '../lib/format'
+import events from '../data/events.json'
 
 export type Orientation = 'vertical' | 'horizontal'
+
+interface HistoricalEvent {
+  y: number
+  t: string
+  e?: string
+}
+const EVENTS = events as HistoricalEvent[]
 
 interface StackedPoint {
   a0: number
@@ -237,6 +245,32 @@ export default function Ribbon({ orientation }: { orientation: Orientation }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stacked, entities, timeline, vertical, pos, breadthExtent, gutter])
 
+  // event years fall between snapshots: interpolate their axis position
+  const yearToPos = (y: number): number => {
+    if (!timeline) return 0
+    if (timeScaleMode === 'linear') return linearPos(y)
+    const ys = timeline.years
+    if (y <= ys[0]) return pos(0)
+    if (y >= ys[ys.length - 1]) return pos(ys.length - 1)
+    let i = 0
+    while (ys[i + 1] < y) i++
+    const f = (y - ys[i]) / (ys[i + 1] - ys[i])
+    return pos(i) + (pos(i + 1) - pos(i)) * f
+  }
+  const nearestSnapshot = (y: number): number => {
+    if (!timeline) return 0
+    let best = 0
+    let bestDist = Infinity
+    timeline.years.forEach((yr, i) => {
+      const d = Math.abs(yr - y)
+      if (d < bestDist) {
+        bestDist = d
+        best = i
+      }
+    })
+    return best
+  }
+
   // scrub interaction: drag anywhere sets the year; a click also selects the band
   const drag = useRef<{ start: [number, number]; moved: boolean } | null>(null)
   const posToIndex = (x: number, y: number): number => {
@@ -282,6 +316,14 @@ export default function Ribbon({ orientation }: { orientation: Orientation }) {
         }}
         onPointerMove={(e) => {
           if (!drag.current) {
+            const marker = (e.target as SVGElement).closest('[data-event-idx]')
+            if (marker) {
+              const ev = EVENTS[Number(marker.getAttribute('data-event-idx'))]
+              useStore.getState().setHoveredEvent({ y: ev.y, t: ev.t })
+              useStore.getState().setHovered(null)
+              return
+            }
+            useStore.getState().setHoveredEvent(null)
             const el = (e.target as SVGElement).closest('[data-id]')
             useStore.getState().setHovered(el?.getAttribute('data-id') ?? null)
             return
@@ -294,14 +336,23 @@ export default function Ribbon({ orientation }: { orientation: Orientation }) {
         onPointerUp={(e) => {
           const wasDrag = drag.current?.moved
           drag.current = null
-          if (!wasDrag) {
-            const el = (e.target as SVGElement).closest('[data-id]')
-            const id = el?.getAttribute('data-id') ?? null
-            const { selectedId: current, setSelected } = useStore.getState()
-            if (id) setSelected(id === current ? null : id)
+          if (wasDrag) return
+          const marker = (e.target as SVGElement).closest('[data-event-idx]')
+          if (marker) {
+            const ev = EVENTS[Number(marker.getAttribute('data-event-idx'))]
+            useStore.getState().setYearIndex(nearestSnapshot(ev.y))
+            if (ev.e) useStore.getState().setSelected(ev.e)
+            return
           }
+          const el = (e.target as SVGElement).closest('[data-id]')
+          const id = el?.getAttribute('data-id') ?? null
+          const { selectedId: current, setSelected } = useStore.getState()
+          if (id) setSelected(id === current ? null : id)
         }}
-        onPointerLeave={() => useStore.getState().setHovered(null)}
+        onPointerLeave={() => {
+          useStore.getState().setHovered(null)
+          useStore.getState().setHoveredEvent(null)
+        }}
       >
         {/* century gridlines + snapshot ticks along the time edge */}
         <g className="ribbon-axis">
@@ -412,6 +463,24 @@ export default function Ribbon({ orientation }: { orientation: Orientation }) {
               {label.text}
             </text>
           ))}
+        </g>
+
+        {/* margin notes: curated events along the outer edge */}
+        <g className="event-markers">
+          {EVENTS.map((ev, idx) => {
+            if (!timeline || ev.y < timeline.years[0]) return null
+            const t = yearToPos(ev.y)
+            return (
+              <circle
+                key={idx}
+                className="event-dot"
+                cx={vertical ? dims.w - 7 : t}
+                cy={vertical ? t : dims.h - 7}
+                r={3}
+                data-event-idx={idx}
+              />
+            )
+          })}
         </g>
 
         {/* playhead */}

@@ -214,6 +214,12 @@ const stateArea = YEARS.map((_, yi) => {
   for (const rec of registry.values()) if (rec.kind === 's') sum += rec.perYear.get(yi) ?? 0
   return sum
 })
+// Snapshots whose "states" are a few anachronistic slivers (pre-4000 BC the
+// dataset has under 1M km² of nominally state land) carry no meaningful state
+// record: zero the denominator so ribbon shares start when states do.
+// Documented in ERRATA.md; the map still renders those polygons.
+const STATE_ERA_MIN_KM2 = 1_000_000
+for (let yi = 0; yi < stateArea.length; yi++) if (stateArea[yi] < STATE_ERA_MIN_KM2) stateArea[yi] = 0
 const peakShare = (rec) => {
   let best = 0
   for (const [yi, km2] of rec.perYear)
@@ -258,18 +264,31 @@ for (let yi = 0; yi < YEARS.length; yi++) {
     f.properties = {
       id: rec.id,
       n: rec.label,
+      ...(curation.shortNames?.[rec.id] ? { s: curation.shortNames[rec.id] } : {}),
       c: rec.color,
       a: Math.round(f.properties.km2),
       p: f.properties.bp,
       k: rec.kind,
     }
   }
+  // second topology layer: one interior label anchor per polity
   const out = await msRun(
-    `-i in.json -rename-layers world -simplify ${SIMPLIFY_PCT} weighted keep-shapes -clean -o out.json format=topojson quantization=100000`,
+    `-i in.json -rename-layers world -simplify ${SIMPLIFY_PCT} weighted keep-shapes -clean -points inner + name=labels -o out.json format=topojson quantization=100000 target=world,labels`,
     { 'in.json': JSON.stringify(dissolved) },
   )
+  // label anchors: only polities/cultures big enough to ever show text,
+  // and only the props the symbol layer reads
+  const topo = JSON.parse(out['out.json'])
+  if (topo.objects.labels) {
+    topo.objects.labels.geometries = topo.objects.labels.geometries
+      .filter((g) => g.properties?.k !== 'u' && (g.properties?.a ?? 0) >= 30000)
+      .map((g) => {
+        const { id, n, s, a, k } = g.properties
+        return { ...g, properties: { id, n, ...(s ? { s } : {}), a, k } }
+      })
+  }
   const file = path.join(outDir, `${year}.json`)
-  fs.writeFileSync(file, out['out.json'])
+  fs.writeFileSync(file, JSON.stringify(topo))
   const kb = fs.statSync(file).size / 1024
   totalKB += kb
   if (kb > FILE_BUDGET_KB) oversize.push(`${year} (${Math.round(kb)} KB)`)
@@ -316,6 +335,31 @@ for (const r of registry.values()) {
 }
 entities._other = { n: 'Other states', s: 'Other states', k: 's', c: '#b9a88a', present: [], peak: 0 }
 fs.writeFileSync(path.join(ROOT, 'public', 'data', 'entities.json'), JSON.stringify(entities))
+
+// ---- places.json: time-tagged historical cities -------------------------
+// dataset places with an inhabitedSince tag, plus curated major capitals
+const placesRaw = JSON.parse(fs.readFileSync(path.join(SRC, 'places.geojson')))
+const places = []
+for (const f of placesRaw.features) {
+  const p = f.properties ?? {}
+  if (p.inhabitedSince == null || !f.geometry) continue
+  const [x, y] = f.geometry.coordinates
+  places.push({
+    n: norm(p.name),
+    x: Math.round(x * 100) / 100,
+    y: Math.round(y * 100) / 100,
+    f: p.inhabitedSince,
+    ...(p.inhabitedUntil != null ? { t: p.inhabitedUntil } : {}),
+    ...(p['wiki.en'] || p.wikipedia ? { w: (p['wiki.en'] || p.wikipedia).replace(/^en:/, '') } : {}),
+  })
+}
+const datasetNames = new Set(places.map((p) => key(p.n)))
+for (const extra of curation.extraPlaces ?? []) {
+  if (!datasetNames.has(key(extra.n))) places.push(extra)
+}
+places.sort((a, b) => a.f - b.f)
+fs.writeFileSync(path.join(ROOT, 'public', 'data', 'places.json'), JSON.stringify(places))
+console.log(`\nplaces.json: ${places.length} time-tagged cities`)
 
 // ---- report -------------------------------------------------------------
 const sizes = {

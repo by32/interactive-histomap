@@ -14,6 +14,13 @@ interface HistomapState {
   speedMs: number
   timeScaleMode: TimeScaleMode
   aboutOpen: boolean
+  showCities: boolean
+  /** hovered historical city (map) */
+  hoveredCity: { n: string; f: number; t?: number; w?: string } | null
+  /** hovered event marker (ribbon) */
+  hoveredEvent: { y: number; t: string } | null
+  /** empire-focus mode: trace the selected polity across its whole history */
+  focusOn: boolean
   setData: (timeline: Timeline, entities: EntityIndex) => void
   setCurrentFeatures: (features: Map<string, YearFeatureProps>) => void
   setYearIndex: (i: number) => void
@@ -25,6 +32,10 @@ interface HistomapState {
   cycleSpeed: () => void
   setTimeScaleMode: (mode: TimeScaleMode) => void
   setAboutOpen: (open: boolean) => void
+  setShowCities: (show: boolean) => void
+  setHoveredCity: (city: HistomapState['hoveredCity']) => void
+  setHoveredEvent: (event: HistomapState['hoveredEvent']) => void
+  setFocusOn: (on: boolean) => void
 }
 
 const clampIndex = (i: number, timeline: Timeline | null) =>
@@ -41,13 +52,17 @@ export const useStore = create<HistomapState>((set, get) => ({
   speedMs: 1500,
   timeScaleMode: 'linear',
   aboutOpen: false,
+  showCities: true,
+  hoveredCity: null,
+  hoveredEvent: null,
+  focusOn: false,
   setData: (timeline, entities) => set({ timeline, entities }),
   setCurrentFeatures: (currentFeatures) => set({ currentFeatures }),
   setYearIndex: (i) => set({ yearIndex: clampIndex(i, get().timeline) }),
   stepYear: (delta) =>
     set({ yearIndex: clampIndex(get().yearIndex + delta, get().timeline), playing: false }),
   setHovered: (hoveredId) => set({ hoveredId }),
-  setSelected: (selectedId) => set({ selectedId }),
+  setSelected: (selectedId) => set({ selectedId, focusOn: false }),
   setPlaying: (playing) => set({ playing }),
   togglePlay: () => {
     const { playing, yearIndex, timeline } = get()
@@ -65,4 +80,8 @@ export const useStore = create<HistomapState>((set, get) => ({
   },
   setTimeScaleMode: (timeScaleMode) => set({ timeScaleMode }),
   setAboutOpen: (aboutOpen) => set({ aboutOpen }),
+  setShowCities: (showCities) => set({ showCities }),
+  setHoveredCity: (hoveredCity) => set({ hoveredCity }),
+  setHoveredEvent: (hoveredEvent) => set({ hoveredEvent }),
+  setFocusOn: (focusOn) => set({ focusOn }),
 }))
