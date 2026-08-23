@@ -312,7 +312,10 @@
       "Koreans", "Burmese", "Saami", "Sámi", "Sami", "Samoyèdes", "Samoyeds", "Permians",
       "Afanasevo", "Mon-Khmer", "Chorrera", "Papuan", "Sintashta", "Mogollon",
       "Thrace", "Saces", "Sarmates", "Turcik tribes", "Turkic tribes",
-      "El Paraiso", "Paleo-Koreans", "Namazga", "Malay", "Vazimba", "Laurel complex",
+      "Ghassul", "Ghassulian", "Funnel-Beaker", "Funnelbeaker", "Early combware", "Comb Ceramic", "Narva",
+      "Volga-Kamm", "Nemay", "Ubaid", "Amuq D", "Naquada I", "Naquada", "Naqada", "Dimini",
+      "El Paraiso", "Paleo-Koreans", "Namazga", "Kelteminar", "Okhotsk culture",
+      "Malay", "Vazimba", "Laurel complex",
       "Papou", "Papous", "Wallmapu (Mapuche)", "Proto-Slavs", "Malagasy",
       "Alans", "Caucasian Alans", "Norsemen", "Chukchi", "Daces", "Dacians",
       "Quechua", "Natchez", "Bashkirs", "Point Peninsula"
@@ -323,7 +326,8 @@
       "culture", "cultures", "tribes", "tribal", "peoples", "chiefdom",
       "bison hunters", "mammal hunters", "cultivators", "horticultur",
       "aboriginal", "amerindian", "first nations", "uninhabited", "uncolonized",
-      "proto-", "paleo-"
+      "proto-", "paleo-", "mesolithic", "neolithic", "paleolithic",
+      "hunters-gatherers", "hunter-forager"
     ]
   },
   "zones": ["Antarctica", "Sahara", "Arctic", "Greenland ice sheet"],

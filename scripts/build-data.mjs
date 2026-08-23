@@ -29,6 +29,7 @@ if (!SRC || !fs.existsSync(SRC)) {
 }
 
 const YEARS = [
+  -10000, -8000, -5000, -4000, -3000,
   -2000, -1500, -1000, -700, -500, -400, -323, -300, -200, -100, -1,
   100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1279, 1300,
   1400, 1492, 1500, 1530, 1600, 1650, 1700, 1715, 1783, 1800, 1815, 1880,
@@ -215,7 +216,8 @@ const stateArea = YEARS.map((_, yi) => {
 })
 const peakShare = (rec) => {
   let best = 0
-  for (const [yi, km2] of rec.perYear) best = Math.max(best, km2 / stateArea[yi])
+  for (const [yi, km2] of rec.perYear)
+    if (stateArea[yi] > 0) best = Math.max(best, km2 / stateArea[yi])
   return best
 }
 

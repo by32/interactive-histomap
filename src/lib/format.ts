@@ -1,6 +1,7 @@
 import type { EntityInfo } from '../types'
 
 export const formatYear = (year: number): string => {
+  if (year <= -10000) return `${(-year).toLocaleString('en-US')} BC`
   if (year < 0) return `${-year} BC`
   if (year < 1000) return `AD ${year}`
   return String(year)

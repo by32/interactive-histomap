@@ -21,6 +21,10 @@ export default function App() {
     ])
       .then(([timeline, entities]) => {
         useStore.getState().setData(timeline, entities)
+        // open where the 1931 original does unless the URL pins a year;
+        // deep time (back to 10,000 BC) is a scrub away
+        if (!new URLSearchParams(location.hash.slice(1)).has('y'))
+          useStore.getState().setYearIndex(Math.max(0, timeline.years.indexOf(-2000)))
         initUrlState()
         return syncUrlState()
       })

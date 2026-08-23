@@ -74,7 +74,7 @@ export default function AboutModal() {
               historical-basemaps
             </a>{' '}
             by André Ourednik (GPL-3.0), a scholarly open dataset of world political boundaries
-            at 47 snapshot years from 2000&nbsp;BC to 2010&nbsp;AD. It is the best openly
+            at 52 snapshot years from 10,000&nbsp;BC to 2010&nbsp;AD. It is the best openly
             licensed data of its scope &mdash; and still a set of approximations.
           </li>
           <li>
@@ -84,11 +84,13 @@ export default function AboutModal() {
             modern state, a frontier was usually a gradient, not a line.
           </li>
           <li>
-            Snapshots are unevenly spaced (500-year gaps in antiquity, 10&ndash;20 years in the
-            20th century). The axis defaults to <strong>true linear time</strong>; the
-            &ldquo;compressed&rdquo; toggle gives every snapshot equal space instead. Between
-            snapshots the streams are interpolated for legibility &mdash; only the 47 snapshot
-            years are data.
+            Snapshots are unevenly spaced (millennia apart in prehistory, 10&ndash;20 years in
+            the 20th century). The axis defaults to <strong>true linear time</strong> with one
+            marked exception: the deep-time segment before 4000&nbsp;BC &mdash; a forager world
+            with no states to measure &mdash; is compressed behind an axis break so recorded
+            history keeps its proportions. The &ldquo;compressed&rdquo; toggle gives every
+            snapshot equal space instead. Between snapshots the streams are interpolated for
+            legibility &mdash; only the 52 snapshot years are data.
           </li>
           <li>
             Overlapping claims and suzerain&ndash;vassal relationships are flattened so land is

@@ -9,9 +9,10 @@ Empires", Rand McNally) — the five-foot chart whose colored bands traced civil
 
 This version keeps the ribbon and adds the map:
 
-- **A world map** (MapLibre GL) of historical polity borders at 47 snapshot years,
-  2000 BC → 2010 AD, scrubbed with a time slider. Fully self-contained — no tile server, no
-  API keys, no external requests.
+- **A world map** (MapLibre GL) of historical polity borders at 52 snapshot years,
+  10,000 BC → 2010 AD (it opens at 2000 BC, like the original; the forager world is a scrub
+  away), with a time slider. Fully self-contained — no tile server, no API keys, no external
+  requests.
 - **A histomap-style ribbon** — vertical on desktop, time flowing top-to-bottom exactly like
   the original — where each stream's width is that civilization's **share of all land held by
   organized polities**. Sparks sized his bands by an undefined feeling of "relative power";
@@ -38,7 +39,7 @@ Node 22 (`.nvmrc`). The MapLibre worker files are served by a small plugin in
 
 ## Data
 
-`public/data/` is generated and committed: 47 TopoJSON snapshots (~3.7 MB total),
+`public/data/` is generated and committed: 52 TopoJSON snapshots (~3.9 MB total),
 `timeline.json` (per-polity km² series for ~180 named streams) and `entities.json`.
 
 To regenerate from the upstream dataset:

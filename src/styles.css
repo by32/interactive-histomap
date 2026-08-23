@@ -338,6 +338,19 @@ button {
   stroke-width: 1;
 }
 
+.axis-break line {
+  stroke: var(--ink-soft);
+  stroke-width: 1.4;
+}
+
+.prehistory-caption {
+  fill: var(--ink-soft);
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 10.5px;
+  pointer-events: none;
+}
+
 .playhead {
   pointer-events: none;
 }

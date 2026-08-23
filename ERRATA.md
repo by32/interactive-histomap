@@ -5,7 +5,8 @@ its limits*. This file logs every check performed against the source data, every
 applied, and every known limitation we chose to disclose rather than patch.
 
 **Source:** [aourednik/historical-basemaps](https://github.com/aourednik/historical-basemaps),
-commit `62d8f1a`, GPL-3.0. 47 snapshots, 2000 BC – 2010 AD.
+commit `62d8f1a`, GPL-3.0. 52 snapshots, 10,000 BC – 2010 AD (the upstream 123,000 BC
+Ice-Age snapshot is deliberately excluded).
 **Pipeline:** `scripts/build-data.mjs` with `scripts/curation.json` (name → polity resolution)
 and `scripts/corrections.json` (documented upstream patches). Areas are geodesic
 (`@turf/area`), computed after overlap resolution and before simplification.
@@ -73,6 +74,10 @@ before any processing so they are reproducible:
   resolved by year ranges; boundaries follow the conventional dates (e.g. "India" → British
   India until 1946, Republic of India from 1947; "Manchuria" → Qing sphere until 1911,
   Republican-era warlord China after).
+- **Deep-time anachronisms.** The prehistoric snapshots label a few regions with much later
+  polities ("Hurrian Kingdoms", Elam and Norte Chico appear from 5000 BC, millennia before
+  any of them existed as organized states). They are displayed and counted as given; real
+  state history in this dataset begins at 4000 BC, which is where the linear axis break sits.
 - **Hittites at 2000 BC.** The dataset shows a Hittite-labelled Anatolia at 2000 BC, about
   three centuries before the conventional Hittite Old Kingdom; we display the dataset as-is.
 - **Colonial territories** are colored by metropole family when the dataset labels them as

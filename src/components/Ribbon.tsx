@@ -24,7 +24,13 @@ const luminance = (hex: string): number => {
   return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255
 }
 
-const TICK_YEARS = [-2000, -1500, -1000, -500, -1, 500, 1000, 1500, 2010]
+const TICK_YEARS = [-10000, -8000, -4000, -3000, -2000, -1500, -1000, -500, -1, 500, 1000, 1500, 2010]
+
+// In linear mode, deep time (10,000-4000 BC) is compressed into a small
+// leading segment behind a marked axis break, so recorded history keeps the
+// original Histomap's proportions.
+const DEEP_END = -4000
+const DEEP_FRACTION = 0.09
 
 const CHAR_W = 0.55 // rough serif advance per px of font size
 const MIN_FONT = 8.5
@@ -105,25 +111,37 @@ export default function Ribbon({ orientation }: { orientation: Orientation }) {
   }, [layers, timeline])
 
   const vertical = orientation === 'vertical'
-  const gutter = vertical ? 54 : 30 // axis labels along the time edge
+  const gutter = vertical ? 62 : 30 // axis labels along the time edge
   const padTime = 6
   const timeExtent = vertical ? dims.h : dims.w
   const breadthExtent = (vertical ? dims.w : dims.h) - gutter
 
+  const hasDeepTime = (timeline?.years[0] ?? 0) < DEEP_END
+
+  const linearPos = useMemo(() => {
+    if (!timeline) return () => 0
+    const first = timeline.years[0]
+    const last = timeline.years[timeline.years.length - 1]
+    const r0 = padTime
+    const r1 = Math.max(padTime + 1, timeExtent - padTime)
+    if (first >= DEEP_END) {
+      const s = scaleLinear().domain([first, last]).range([r0, r1])
+      return (y: number) => s(y)
+    }
+    const breakAt = r0 + (r1 - r0) * DEEP_FRACTION
+    const deep = scaleLinear().domain([first, DEEP_END]).range([r0, breakAt])
+    const main = scaleLinear().domain([DEEP_END, last]).range([breakAt, r1])
+    return (y: number) => (y <= DEEP_END ? deep(y) : main(y))
+  }, [timeline, timeExtent])
+
   const pos = useMemo(() => {
     if (!timeline) return () => 0
-    const range: [number, number] = [padTime, Math.max(padTime + 1, timeExtent - padTime)]
-    if (timeScaleMode === 'linear') {
-      const s = scaleLinear()
-        .domain([timeline.years[0], timeline.years[timeline.years.length - 1]])
-        .range(range)
-      return (i: number) => s(timeline.years[i])
-    }
+    if (timeScaleMode === 'linear') return (i: number) => linearPos(timeline.years[i])
     const s = scalePoint<number>()
       .domain(timeline.years.map((_, i) => i))
-      .range(range)
+      .range([padTime, Math.max(padTime + 1, timeExtent - padTime)])
     return (i: number) => s(i) ?? 0
-  }, [timeline, timeScaleMode, timeExtent])
+  }, [timeline, timeScaleMode, timeExtent, linearPos])
 
   const breadth = (v: number) => gutter + v * Math.max(0, breadthExtent)
 
@@ -289,13 +307,9 @@ export default function Ribbon({ orientation }: { orientation: Orientation }) {
         <g className="ribbon-axis">
           {TICK_YEARS.map((year) => {
             const i = timeline.years.indexOf(year)
-            const t =
-              timeScaleMode === 'linear' || i < 0
-                ? scaleLinear()
-                    .domain([timeline.years[0], timeline.years[timeline.years.length - 1]])
-                    .range([padTime, timeExtent - padTime])(year)
-                : pos(i)
+            if (year < timeline.years[0]) return null
             if (timeScaleMode === 'snapshot' && i < 0) return null
+            const t = timeScaleMode === 'linear' || i < 0 ? linearPos(year) : pos(i)
             const tt = Math.max(10, Math.min((vertical ? dims.h : dims.w) - 6, t))
             return vertical ? (
               <g key={year}>
@@ -307,7 +321,12 @@ export default function Ribbon({ orientation }: { orientation: Orientation }) {
             ) : (
               <g key={year}>
                 <line y1={gutter - 4} y2={dims.h} x1={t} x2={t} className="tick-line" />
-                <text y={gutter - 8} x={t} textAnchor="middle" className="tick-text">
+                <text
+                  y={gutter - 8}
+                  x={Math.max(28, Math.min(dims.w - 28, t))}
+                  textAnchor="middle"
+                  className="tick-text"
+                >
                   {formatYear(year)}
                 </text>
               </g>
@@ -321,6 +340,21 @@ export default function Ribbon({ orientation }: { orientation: Orientation }) {
               <line key={i} y1={gutter - 4} y2={gutter} x1={t} x2={t} className="snapshot-tick" />
             )
           })}
+          {timeScaleMode === 'linear' && hasDeepTime && (
+            <g className="axis-break">
+              {vertical ? (
+                <>
+                  <line x1={gutter - 16} x2={gutter + 5} y1={linearPos(DEEP_END) + 2} y2={linearPos(DEEP_END) - 4} />
+                  <line x1={gutter - 16} x2={gutter + 5} y1={linearPos(DEEP_END) + 7} y2={linearPos(DEEP_END) + 1} />
+                </>
+              ) : (
+                <>
+                  <line y1={gutter - 16} y2={gutter + 5} x1={linearPos(DEEP_END) + 2} x2={linearPos(DEEP_END) - 4} />
+                  <line y1={gutter - 16} y2={gutter + 5} x1={linearPos(DEEP_END) + 7} x2={linearPos(DEEP_END) + 1} />
+                </>
+              )}
+            </g>
+          )}
         </g>
 
         <g>
@@ -337,6 +371,28 @@ export default function Ribbon({ orientation }: { orientation: Orientation }) {
             <path key={i} d={d} className="divider" />
           ))}
         </g>
+
+        {(() => {
+          const firstStateIdx = timeline.stateArea.findIndex((v) => v > 1_000_000)
+          if (firstStateIdx <= 0) return null
+          const t0 = pos(0)
+          const t1 = pos(firstStateIdx)
+          const span = t1 - t0
+          if (vertical ? span < 16 : span < 145) return null
+          const mid = (t0 + t1) / 2
+          const center = gutter + breadthExtent / 2
+          return (
+            <text
+              className="prehistory-caption"
+              x={vertical ? center : mid}
+              y={vertical ? mid : center}
+              dy="0.32em"
+              textAnchor="middle"
+            >
+              foragers &amp; first farmers
+            </text>
+          )
+        })()}
 
         {/* collision-free in-stream labels */}
         <g className="stream-labels">
