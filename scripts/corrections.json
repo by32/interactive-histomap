@@ -83,6 +83,15 @@
       },
       "note": "The 1938 and 1945 snapshots label the territory 'Israel', a state proclaimed on 14 May 1948; in both years it was the British Mandate for Palestine (1920–1948). Relabelled with the mandate's name so the map does not show a state a decade before it existed.",
       "source": "Encyclopaedia Britannica, \"Palestine\" (British mandate) and \"Israel\" (founding)"
+    },
+    {
+      "year": 1492,
+      "whereName": "Chimú",
+      "set": {
+        "NAME": "Inca Empire"
+      },
+      "note": "The 1492 snapshot labels the whole Andean polity, from Ecuador to central Chile, 'Chimú'. The Kingdom of Chimor was conquered by the Inca under Topa Inca Yupanqui c. 1470; in 1492 the territory was the Inca Empire (Tawantinsuyu) near its greatest extent under Huayna Capac. The sibling 1400 snapshot keeps a separate 'Chimú Empire', and the 1500 and 1530 snapshots already say 'Inca Empire'.",
+      "source": "Encyclopaedia Britannica, \"Chimú\" and \"Inca\" (Topa Inca Yupanqui's conquest of Chimor, c. 1470)"
     }
   ]
 }
