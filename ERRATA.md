@@ -29,7 +29,7 @@ Run against the generated `timeline.json` (areas in km², shares of state-held l
 
 ## Corrections applied to upstream data
 
-Both live in `scripts/corrections.json` with full rationale and citation; they are applied
+All live in `scripts/corrections.json` with full rationale and citation; they are applied
 before any processing so they are reproducible:
 
 1. **1500 BC, "Zhoa" → "Shang".** The snapshot labels the Chinese heartland "Zhoa"; around
@@ -43,17 +43,48 @@ before any processing so they are reproducible:
    "White Russia" for the Belarus region (its literal meaning), which we follow.
    (Britannica, *Soviet Union*.)
 
+3. **700 AD, "Sui Empire" → "Tang Empire".** The Sui fell in 618; in 700 China was ruled
+   by the Tang (618–907). The label appears carried over from the 600 AD snapshot.
+   (Britannica, *Tang dynasty*.)
+4. **700 AD, "Sasanian Empire" / "Sasanian dependencies" / "Hejaz" → "Umayyad Caliphate".**
+   The Sasanian state was destroyed by the Arab conquest (last king killed 651); by 700 Iran,
+   Mesopotamia and the Hejaz were governed by the Umayyad Caliphate. Before these relabels
+   the snapshot drew the caliphate at 1.7M km²; after them it reaches ~4.8M km². **It remains
+   under-drawn**: the dataset shows Egypt and the Maghreb — Umayyad by 700 — as unlabeled or
+   nomadic zones, and no relabel can supply missing geometry. (Britannica, *Sasanian
+   dynasty*, *Umayyad dynasty*.)
+5. **1492–1880, "Papua New Guinea" → "Papuans".** Six pre-colonial snapshots label eastern
+   New Guinea with the name of a state founded in 1975, and the pipeline had counted it as
+   0.42M km² of state land (0.6% of the 1492 world). No state existed there; the polygon is
+   rendered as a cultural zone under the dataset's own "Papuans" label. The 1900 snapshot
+   (German north, British south, drawn as one shape) is left as the dataset gives it; from
+   1914 the shape is resolved to Australian administration and from 1975 to the independent
+   state by year-scoped aliases. (Britannica, *Papua New Guinea*.)
+
 ## Data-hygiene rules (not historical judgments)
 
 - **Junk `SUBJECTO` values**: the 100 AD snapshot contains a 17.6M km² polygon with no `NAME`
   and `SUBJECTO: "1"` covering the unorganized interior of Asia. `SUBJECTO` is used as a
   fallback name only when it contains at least one letter; this polygon is therefore
   classified as unclaimed land, which is what its geography indicates.
-- **Upstream misspellings** are mapped to canonical polities via aliases (display names are
-  corrected, geometry untouched): "Khoiasan" (Khoisan), "Anglo-Egyption Sudan",
-  "Poland-Llituania", "Zhow states", "Celltic Hallsatt culture", "Cimerians", "Peshemegs"
-  (Pechenegs), "Satavahanihara", "Makkura" (Makuria), "Quazaq Khanate", "Turcik tribes",
-  "Castille", among others.
+- **Upstream misspellings** are mapped to canonical polities via aliases, and cultural-zone
+  typos to corrected display names via `cultureLabels` in `scripts/curation.json` (geometry
+  untouched): "Khoiasan" (Khoisan), "Anglo-Egyption Sudan", "Poland-Llituania", "Zhow
+  states", "Celltic Hallsatt culture", "Cimerians", "Peshemegs" (Pechenegs),
+  "Satavahanihara", "Makkura" (Makuria), "Quazaq Khanate", "Turcik tribes", "Castille",
+  "Kwarizm-Shah", "Bukara Khanate", "Rajastan", "Kingdom of Kassander",
+  "Eastern North Amercian hunter-gatherers", "Caloosahatchee cultureure", "Dakapeng"
+  (Dapenkeng), "Naquada" (Naqada), "Sambian-Nothangian" (Natangian), "Volga-Kamm"
+  (Volga-Kama), "Plateau fichers", among others. French plural forms ("Papous", "Sarmates",
+  "Daces", "Touareg") are given their English names, and spelling variants of one zone
+  ("Athabascan"/"Athabaskan", "Saami"/"Sámi") are merged.
+- **"Mali" across eras.** The dataset uses the bare label for the Mali Empire's remnant
+  through 1715 and for French Sudan in 1945 (the modern republic dates from 1960); the
+  alias ranges follow those uses (Mali Empire to 1750; modern Mali from 1900).
+- **Colonial and post-colonial Africa.** German, Portuguese, Dutch and Italian colonial
+  holdings are grouped under their metropole families; the larger post-independence states are
+  curated as individual polities in the Africa family so that the 1994 and 2010 maps read
+  as coherent shades rather than uncurated gray.
 
 ## Disclosed limitations (deliberately not patched)
 
@@ -73,7 +104,10 @@ before any processing so they are reproducible:
 - **Era-ambiguous names** ("Egypt", "Persia", "Mali", "India", "Manchuria", "Algeria"…) are
   resolved by year ranges; boundaries follow the conventional dates (e.g. "India" → British
   India until 1946, Republic of India from 1947; "Manchuria" → Qing sphere until 1911,
-  Republican-era warlord China after).
+  Republican-era warlord China after; "Ceylon" → Sinhalese kingdoms until 1795, British
+  Ceylon 1796–1947, Sri Lanka from 1948; "Paraguay" → the Río de la Plata viceroyalty until
+  1810; "Gabon" → French Equatorial Africa until 1959; the 1945 "Korea (USSR)" and
+  "Korea (USA)" occupation zones → the two Koreas they became in 1948).
 - **Deep-time anachronisms.** The prehistoric snapshots label a few regions with much later
   polities ("Hurrian Kingdoms", Elam and Norte Chico appear from 5000 BC, millennia before
   any of them existed as organized states). They still render on the map as given, but

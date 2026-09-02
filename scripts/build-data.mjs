@@ -74,7 +74,13 @@ for (const [id, ent] of Object.entries(curation.entities)) {
   }
 }
 const aggregates = new Set((curation.aggregates ?? []).map(key))
-const cultureAliases = new Set(curation.cultures.aliases.map(key))
+const cultureLabels = new Map(
+  Object.entries(curation.cultureLabels ?? {}).map(([from, to]) => [key(from), to]),
+)
+const cultureAliases = new Set([
+  ...curation.cultures.aliases.map(key),
+  ...cultureLabels.keys(), // a typo listed for correction is by definition a culture
+])
 const zoneAliases = new Set((curation.zones ?? []).map(key))
 const culturePatterns = curation.cultures.patterns.map((p) => p.toLowerCase())
 
@@ -99,8 +105,10 @@ function classify(props, year) {
   if (curatedId) return { eid: curatedId, nm: curation.entities[curatedId].label, kind: 's' }
   const k = key(rawName)
   if (aggregates.has(k)) return { eid: '_minor', nm: 'Minor states', kind: 's' }
-  if (cultureAliases.has(k) || zoneAliases.has(k)) return { eid: 'z-' + slug(rawName), nm: rawName, kind: 'c' }
-  if (culturePatterns.some((p) => k.includes(p))) return { eid: 'z-' + slug(rawName), nm: rawName, kind: 'c' }
+  // cultural zones: correct upstream typos for display (variants merge into one zone)
+  const cultureName = cultureLabels.get(k) ?? rawName
+  if (cultureAliases.has(k) || zoneAliases.has(k) || culturePatterns.some((p) => k.includes(p)))
+    return { eid: 'z-' + slug(cultureName), nm: cultureName, kind: 'c' }
   return { eid: 'x-' + slug(rawName), nm: rawName, kind: 's' }
 }
 
@@ -169,7 +177,12 @@ for (let yi = 0; yi < YEARS.length; yi++) {
   const raw = JSON.parse(fs.readFileSync(path.join(SRC, fileFor(year))))
   // corrections
   for (const c of correctionsFile.corrections) {
-    if (c.year !== year && c.year !== 'all') continue
+    // a single signed year, 'all', or an inclusive from/to range of snapshots
+    const applies =
+      c.year === 'all' ||
+      c.year === year ||
+      (c.year == null && (c.from == null || year >= c.from) && (c.to == null || year <= c.to))
+    if (!applies) continue
     for (let i = raw.features.length - 1; i >= 0; i--) {
       const f = raw.features[i]
       if (key(f.properties?.NAME) !== key(c.whereName)) continue

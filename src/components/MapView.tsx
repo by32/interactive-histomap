@@ -360,8 +360,13 @@ export default function MapView() {
       map.on('click', (e: MapMouseEvent) => {
         const battleHits = map.queryRenderedFeatures(e.point, { layers: ['battles-icon'] })
         const battle = battleHits[0]?.properties as HistoricalEvent | undefined
-        if (battle?.e) {
-          useStore.getState().setSelected(battle.e)
+        if (battle) {
+          if (battle.e) useStore.getState().setSelected(battle.e)
+          // no hover on touch devices: show the note briefly on tap
+          if (window.matchMedia('(hover: none)').matches) {
+            useStore.getState().setHoveredEvent({ y: battle.y, t: battle.t, k: 'battle' })
+            window.setTimeout(() => useStore.getState().setHoveredEvent(null), 3000)
+          }
           return
         }
         const cityHits = map.queryRenderedFeatures(e.point, { layers: ['cities-dot'] })
@@ -525,7 +530,8 @@ export default function MapView() {
         const fc: FeatureCollection = { type: 'FeatureCollection', features }
         source?.setData(fc)
         const bounds = bboxOf(fc)
-        if (bounds) map.fitBounds(bounds, { padding: 70, duration: 900, maxZoom: 4.5 })
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        if (bounds) map.fitBounds(bounds, { padding: 70, duration: reduceMotion ? 0 : 900, maxZoom: 4.5 })
       })
       .catch(() => {})
     return () => {

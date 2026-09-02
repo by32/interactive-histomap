@@ -344,6 +344,11 @@ export default function Ribbon({ orientation }: { orientation: Orientation }) {
             const ev = EVENTS[Number(marker.getAttribute('data-event-idx'))]
             useStore.getState().setYearIndex(nearestSnapshot(ev.y))
             if (ev.e) useStore.getState().setSelected(ev.e)
+            // touch devices never hover: surface the note briefly on tap
+            if (window.matchMedia('(hover: none)').matches) {
+              useStore.getState().setHoveredEvent({ y: ev.y, t: ev.t, k: ev.k })
+              window.setTimeout(() => useStore.getState().setHoveredEvent(null), 3000)
+            }
             return
           }
           const el = (e.target as SVGElement).closest('[data-id]')

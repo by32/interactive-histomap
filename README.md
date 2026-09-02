@@ -60,7 +60,7 @@ The pipeline (`scripts/build-data.mjs`):
 
 1. applies the documented upstream corrections in `scripts/corrections.json` (each with a
    rationale and source),
-2. resolves raw names against `scripts/curation.json` — ~230 curated polities in 21
+2. resolves raw names against `scripts/curation.json` — ~280 curated polities in 21
    civilization families, with era-scoped aliases for names that mean different things in
    different centuries ("Mali", "Persia", the two Jin dynasties),
 3. classifies archaeological cultures and tribal zones separately (they render, but don't

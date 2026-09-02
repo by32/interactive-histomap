@@ -75,7 +75,9 @@ export default function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
+      // leave focused controls alone: Space on a button must not also toggle playback
+      if (['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON', 'A'].includes(target.tagName) || target.isContentEditable)
+        return
       const { stepYear, togglePlay } = useStore.getState()
       if (e.key === 'ArrowLeft') stepYear(-1)
       else if (e.key === 'ArrowRight') stepYear(1)
@@ -98,7 +100,7 @@ export default function App() {
     return (
       <div className="boot-screen">
         <h1>The Interactive Histomap</h1>
-        <p>Loading four thousand years…</p>
+        <p>Loading twelve thousand years…</p>
       </div>
     )
   return (

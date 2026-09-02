@@ -2,6 +2,11 @@ import { useEffect, useRef } from 'react'
 import { useStore } from '../store'
 import { formatArea, formatShare, formatYear } from '../lib/format'
 
+// Last known pointer position, tracked even while no tooltip is mounted: on touch
+// devices the note mounts on the tap's click, after the pointerdown has already
+// happened, and must appear at the tap point rather than the viewport corner.
+const lastPointer = { x: 0, y: 0 }
+
 export default function Tooltip() {
   const ref = useRef<HTMLDivElement>(null)
   const hoveredId = useStore((s) => s.hoveredId)
@@ -13,16 +18,39 @@ export default function Tooltip() {
   const currentFeatures = useStore((s) => s.currentFeatures)
 
   useEffect(() => {
+    const track = (e: PointerEvent) => {
+      lastPointer.x = e.clientX
+      lastPointer.y = e.clientY
+    }
+    window.addEventListener('pointermove', track)
+    window.addEventListener('pointerdown', track)
+    return () => {
+      window.removeEventListener('pointermove', track)
+      window.removeEventListener('pointerdown', track)
+    }
+  }, [])
+
+  useEffect(() => {
     const el = ref.current
     if (!el) return
-    const move = (e: PointerEvent) => {
+    const place = () => {
       const pad = 14
-      const x = Math.min(e.clientX + pad, window.innerWidth - el.offsetWidth - 8)
-      const y = Math.min(e.clientY + pad, window.innerHeight - el.offsetHeight - 8)
+      const x = Math.min(lastPointer.x + pad, window.innerWidth - el.offsetWidth - 8)
+      const y = Math.min(lastPointer.y + pad, window.innerHeight - el.offsetHeight - 8)
       el.style.transform = `translate(${x}px, ${y}px)`
     }
+    const move = (e: PointerEvent) => {
+      lastPointer.x = e.clientX
+      lastPointer.y = e.clientY
+      place()
+    }
+    place() // position immediately; a tap produces no further pointer events
     window.addEventListener('pointermove', move)
-    return () => window.removeEventListener('pointermove', move)
+    window.addEventListener('pointerdown', move)
+    return () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerdown', move)
+    }
   }, [hoveredId, hoveredCity, hoveredEvent])
 
   if (hoveredEvent) {

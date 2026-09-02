@@ -41,4 +41,6 @@ function maplibreWorkerAssets(): Plugin {
 export default defineConfig({
   base: '/interactive-histomap/',
   plugins: [react(), maplibreWorkerAssets()],
+  // MapLibre is ~1 MB minified and needed on first paint; splitting it buys nothing
+  build: { chunkSizeWarningLimit: 1400 },
 })

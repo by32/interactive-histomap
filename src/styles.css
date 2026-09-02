@@ -242,6 +242,13 @@ button {
   min-width: 0;
   border-right: 1px solid var(--ink-hairline);
   background: var(--panel);
+  container-type: inline-size;
+}
+/* narrow panel: drop the caption instead of truncating it */
+@container (max-width: 330px) {
+  .ribbon-title {
+    display: none;
+  }
 }
 
 .ribbon-head {
