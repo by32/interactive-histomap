@@ -69,10 +69,14 @@ before any processing so they are reproducible:
 7. **1938 and 1945, "Israel" → "Mandatory Palestine".** Israel was proclaimed on 14 May
    1948; in both snapshots the territory was the British Mandate for Palestine (1920–48).
    (Britannica, *Palestine*, *Israel*.)
-8. **1492, "Chimú" → "Inca Empire".** The snapshot labels the whole Andean polity from
-   Ecuador to central Chile "Chimú", a kingdom the Inca conquered c. 1470; in 1492 it was
-   the Inca Empire near its greatest extent. The 1400 snapshot keeps a separate Chimú, and
-   1500 and 1530 already say "Inca Empire". (Britannica, *Chimú*, *Inca*.)
+8. **1492, "Chimú", "Wari" and "Quechua" → "Inca Empire".** The snapshot has no Inca
+   polygon at all: the north coast keeps "Chimú" (conquered by the Inca c. 1470), the central
+   highlands "Wari" (an empire that collapsed by c. 1100), and the heartland is drawn only as
+   the Quechua people. All three were the Inca Empire in 1492; relabelled, they give the Inca
+   stream about 0.9M km² there instead of nothing. **It remains under-drawn** (conventional
+   estimate ~2M km²): Ecuador, the Bolivian altiplano and north-west Argentina are drawn as
+   other peoples and are left as cultural zones rather than reconstructed. (Britannica,
+   *Chimú*, *Huari*, *Inca*.)
 
 ## Data-hygiene rules (not historical judgments)
 

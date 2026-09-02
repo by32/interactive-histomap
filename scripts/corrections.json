@@ -90,8 +90,26 @@
       "set": {
         "NAME": "Inca Empire"
       },
-      "note": "The 1492 snapshot labels the whole Andean polity, from Ecuador to central Chile, 'Chimú'. The Kingdom of Chimor was conquered by the Inca under Topa Inca Yupanqui c. 1470; in 1492 the territory was the Inca Empire (Tawantinsuyu) near its greatest extent under Huayna Capac. The sibling 1400 snapshot keeps a separate 'Chimú Empire', and the 1500 and 1530 snapshots already say 'Inca Empire'.",
+      "note": "The 1492 snapshot has no Inca polygon at all. The north Peruvian coast keeps the label 'Chimú', but the Kingdom of Chimor was conquered by the Inca under Topa Inca Yupanqui c. 1470; in 1492 it was part of the Inca Empire (Tawantinsuyu). The 1400 snapshot rightly has a separate Chimú, and 1500 and 1530 already say 'Inca Empire'.",
       "source": "Encyclopaedia Britannica, \"Chimú\" and \"Inca\" (Topa Inca Yupanqui's conquest of Chimor, c. 1470)"
+    },
+    {
+      "year": 1492,
+      "whereName": "Wari",
+      "set": {
+        "NAME": "Inca Empire"
+      },
+      "note": "The central Peruvian highlands are labelled 'Wari' in 1492; the Wari Empire collapsed by c. 1100 and the area was the Inca heartland in 1492.",
+      "source": "Encyclopaedia Britannica, \"Huari\" (collapse c. 1000–1100) and \"Inca\""
+    },
+    {
+      "year": 1492,
+      "whereName": "Quechua",
+      "set": {
+        "NAME": "Inca Empire"
+      },
+      "note": "The Inca heartland of highland Peru is drawn in 1492 only as the Quechua people (0.76M km²). Every Quechua-speaking region on the polygon had been incorporated into the Inca Empire by the 1480s, so the polygon is relabelled to the state that governed it. Even so the empire remains under-drawn (about 0.9M km² against the conventional ~2M km²): Ecuador, the Bolivian altiplano and north-west Argentina are drawn as other peoples and are left as cultural zones rather than reconstructed.",
+      "source": "Encyclopaedia Britannica, \"Inca\" (extent under Topa Inca Yupanqui and Huayna Capac)"
     }
   ]
 }
