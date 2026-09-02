@@ -95,7 +95,38 @@ const resolveAlias = (raw, year) => {
 
 // ---- classification -----------------------------------------------------
 // kind: 's' curated/uncurated state, 'c' culture/zone, 'u' unclaimed
-function classify(props, year) {
+// Indigenous-nation mosaics: regions and eras in which the dataset names peoples
+// (Ute, Crow, Arrernte, Chukchi…) as if they were polities. Uncurated polygons
+// whose centroid falls inside one of these boxes are cultural zones, not states;
+// real states inside a box are listed in its `except` (or curated by alias).
+const indigenousZones = (curation.indigenousZones ?? []).map((z) => ({
+  ...z,
+  except: new Set((z.except ?? []).map(key)),
+}))
+function inIndigenousZone(rawName, year, c) {
+  if (!c) return false
+  const k = key(rawName)
+  return indigenousZones.some(
+    (z) =>
+      (z.from == null || year >= z.from) &&
+      (z.to == null || year <= z.to) &&
+      c[0] >= z.bbox[0] && c[0] <= z.bbox[2] && c[1] >= z.bbox[1] && c[1] <= z.bbox[3] &&
+      !z.except.has(k),
+  )
+}
+function centroidOf(geometry) {
+  const rings =
+    geometry.type === 'Polygon' ? [geometry.coordinates[0]]
+    : geometry.type === 'MultiPolygon' ? geometry.coordinates.map((p) => p[0])
+    : []
+  const ring = rings.sort((a, b) => b.length - a.length)[0]
+  if (!ring?.length) return null
+  let sx = 0, sy = 0
+  for (const [x, y] of ring) { sx += x; sy += y }
+  return [sx / ring.length, sy / ring.length]
+}
+
+function classify(props, year, centroid) {
   // SUBJECTO is a fallback name only when it looks like one (year 100 has a
   // giant unclaimed polygon with SUBJECTO "1" — junk metadata, see ERRATA.md)
   const subj = norm(props.SUBJECTO)
@@ -109,6 +140,7 @@ function classify(props, year) {
   const cultureName = cultureLabels.get(k) ?? rawName
   if (cultureAliases.has(k) || zoneAliases.has(k) || culturePatterns.some((p) => k.includes(p)))
     return { eid: 'z-' + slug(cultureName), nm: cultureName, kind: 'c' }
+  if (inIndigenousZone(rawName, year, centroid)) return { eid: 'z-' + slug(rawName), nm: rawName, kind: 'c' }
   return { eid: 'x-' + slug(rawName), nm: rawName, kind: 's' }
 }
 
@@ -195,7 +227,7 @@ for (let yi = 0; yi < YEARS.length; yi++) {
   for (const f of raw.features) {
     if (!f.geometry) continue
     const p = f.properties ?? {}
-    const { eid, nm, kind } = classify(p, year)
+    const { eid, nm, kind } = classify(p, year, centroidOf(f.geometry))
     let bp = Number(p.BORDERPRECISION)
     if (!(bp >= 1 && bp <= 3)) bp = 1
     features.push({ type: 'Feature', properties: { eid, nm, kind, bp }, geometry: f.geometry })

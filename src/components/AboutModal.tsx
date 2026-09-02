@@ -43,10 +43,12 @@ export default function AboutModal() {
           </li>
           <li>
             Broad <strong>cultural and tribal areas</strong> (hunter-gatherer zones,
-            archaeological cultures, &ldquo;&hellip;tribes&rdquo;) still render on the map in
-            parchment tones, but are excluded from the ribbon and its denominator &mdash;
-            otherwise antiquity would be a wall of gray. Which side of that line a society falls
-            on is a judgment call; ours is documented in the repository&rsquo;s curation table.
+            archaeological cultures, &ldquo;&hellip;tribes&rdquo;, and the named indigenous
+            nations the source draws across the Americas, Australia and Siberia from 1492) still
+            render on the map in parchment tones, but are excluded from the ribbon and its
+            denominator &mdash; otherwise antiquity would be a wall of gray. Which side of that
+            line a society falls on is a judgment call; ours is documented in the
+            repository&rsquo;s curation table and accuracy log.
           </li>
           <li>
             Streams are grouped into <strong>civilization families</strong> echoing the 1931

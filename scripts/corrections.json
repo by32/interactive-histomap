@@ -64,6 +64,25 @@
       },
       "note": "The 1492–1880 snapshots label eastern New Guinea with the name of a state that only came into being in 1975; the island's societies were stateless and no colonial administration existed before the 1884 German and British annexations. Relabelled to the dataset's own cultural-zone name so the polygon renders as a cultural area instead of counting 0.42M km² of phantom state land.",
       "source": "Encyclopaedia Britannica, \"Papua New Guinea\" (history section)"
+    },
+    {
+      "year": 1000,
+      "whereName": "Denmark-Norway",
+      "set": {
+        "NAME": "Norse Greenland"
+      },
+      "note": "The 1000 AD snapshot labels the whole of Greenland (2.1M km²) 'Denmark-Norway', a union that only formed in 1524. The Norse settlements founded c. 985 were self-governing until they accepted Norwegian sovereignty in 1261; Denmark's colonial claim dates from 1721. Relabelled as a cultural zone so the polygon no longer adds two million km² to the Danish stream. The 1400 and 1500 'Kalmar Union' labels for Greenland are kept as the dataset's reading of the crown's nominal claim.",
+      "source": "Encyclopaedia Britannica, \"Greenland\" (history section)"
+    },
+    {
+      "from": 1938,
+      "to": 1947,
+      "whereName": "Israel",
+      "set": {
+        "NAME": "Mandatory Palestine"
+      },
+      "note": "The 1938 and 1945 snapshots label the territory 'Israel', a state proclaimed on 14 May 1948; in both years it was the British Mandate for Palestine (1920–1948). Relabelled with the mandate's name so the map does not show a state a decade before it existed.",
+      "source": "Encyclopaedia Britannica, \"Palestine\" (British mandate) and \"Israel\" (founding)"
     }
   ]
 }
