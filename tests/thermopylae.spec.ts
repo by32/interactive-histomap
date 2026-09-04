@@ -37,6 +37,14 @@ test('the Thermopylae walkthrough renders and steps through its scenes', async (
   await expect(page.locator('#legend')).toContainText('Spartans')
   await expect(page.locator('#legend')).toContainText('Immortals')
 
+  // the topography switch swaps in today's silted plain and is remembered in the hash
+  await expect(page.locator('body')).toHaveAttribute('data-topo', '480bc')
+  await page.getByRole('button', { name: 'today' }).click()
+  await expect(page.locator('body')).toHaveAttribute('data-topo', 'today')
+  await expect.poll(() => page.evaluate(() => location.hash)).toContain('t=today')
+  await page.keyboard.press('t')
+  await expect(page.locator('body')).toHaveAttribute('data-topo', '480bc')
+
   // a deep link lands on its scene
   await page.goto('thermopylae.html#s=10')
   await expect(page.locator('#stage-title')).toHaveText('The last stand on Kolonos hill')

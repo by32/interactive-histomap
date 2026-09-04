@@ -154,6 +154,23 @@ button {
   border-color: var(--accent);
 }
 
+.segmented {
+  display: flex;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid var(--ink-faint);
+  background: var(--glass);
+}
+.segmented .chip {
+  border: none;
+  border-radius: 0;
+  background: none;
+  padding: 4px 10px;
+}
+.segmented .chip.on {
+  background: var(--accent);
+}
+
 /* ---------- compass ---------- */
 #compass {
   position: fixed;
