@@ -11,6 +11,15 @@ export default function Header() {
         <span className="tagline">twelve thousand years of territorial history</span>
       </div>
       <SearchBox />
+      <a
+        className="about-btn walkthrough-link"
+        href={`${import.meta.env.BASE_URL}thermopylae.html`}
+        target="_blank"
+        rel="noreferrer"
+        title="Walk the pass of Thermopylae, 480 BC, in 3D"
+      >
+        ⚔ Thermopylae 3D
+      </a>
       <button
         className="about-btn"
         title="Download the full ribbon as a printable wall chart"

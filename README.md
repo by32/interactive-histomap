@@ -32,6 +32,27 @@ This version keeps the ribbon and adds the map:
   footprint across every era it existed (with an area-over-time sparkline), and a one-click
   **poster export**: the whole ribbon as a printable wall chart.
 
+## The Thermopylae walkthrough
+
+**Live: https://by32.github.io/interactive-histomap/thermopylae.html**
+
+The Thermopylae battle marker (480 BC) opens a second page: a narrated, browser-native 3D
+walkthrough of the pass, built with three.js. Eleven steps carry the camera from Xerxes'
+camp at Trachis to the last stand on Kolonos hill — the three gates, the Phocian wall, the
+hot springs, the night march of the Immortals along the Anopaea path (torches and all), the
+Phocians surprised at dawn, the dismissal of the allies. Armies are drawn as instanced
+figures, one per five soldiers, that redeploy between steps; the camera is free to orbit at
+any time (`reset view` returns it). `#s=7` deep-links to a step.
+
+The terrain is a schematic heightfield generated in the browser from the ancient
+descriptions (Herodotus 7.176, 7.198–200, 7.216), not survey data. The shoreline follows the
+geological reconstruction of Kraft, Rapp, Szemler, Tziavos & Kase (*Journal of Field
+Archaeology* 14, 1987): in 480 BC the Malian Gulf lapped within tens of metres of the cliffs;
+the wide plain there today is river silt. The course of the Anopaea is debated; army sizes
+are Herodotus' where the narration says so and modern estimates otherwise. All of it is
+stated in the page's legend. Source lives in `src/thermopylae/` (`terrain.ts` is the
+heightfield, `script.ts` the steps and narration, `units.ts` the armies).
+
 ## Development
 
 ```sh
@@ -42,7 +63,8 @@ npm run test       # Playwright smoke tests (builds are served via `vite preview
 ```
 
 Node 22 (`.nvmrc`). The MapLibre worker files are served by a small plugin in
-`vite.config.ts` — see the comment there before touching MapLibre versions.
+`vite.config.ts` — see the comment there before touching MapLibre versions. The site is a
+two-page Vite build: `index.html` (the histomap) and `thermopylae.html` (the walkthrough).
 
 ## Data
 

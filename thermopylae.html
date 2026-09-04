@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="A narrated 3D walkthrough of the battle of Thermopylae, 480 BC: the three gates, the Phocian wall, the Anopaea path and the last stand on Kolonos hill."
+    />
+    <meta property="og:title" content="Thermopylae, 480 BC — a 3D walkthrough" />
+    <meta
+      property="og:description"
+      content="Walk the Hot Gates in three dimensions: the pass, the wall, the mountain path and the last stand, step by step."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://by32.github.io/interactive-histomap/thermopylae.html" />
+    <meta name="theme-color" content="#1c2230" />
+    <title>Thermopylae, 480 BC — 3D walkthrough · The Interactive Histomap</title>
+  </head>
+  <body>
+    <canvas id="scene" aria-label="3D model of the pass of Thermopylae"></canvas>
+    <div id="labels" aria-hidden="true"></div>
+
+    <header class="topbar">
+      <a class="back" href="./#y=-500&e=achaemenid" title="Back to the Histomap at 480 BC">← Histomap</a>
+      <h1>Thermopylae <span>480 BC · 3D walkthrough</span></h1>
+      <div class="tools">
+        <button id="labels-toggle" class="chip on" title="Toggle place names (L)">names</button>
+        <button id="legend-toggle" class="chip" title="Who is who">legend</button>
+        <button id="refly" class="chip" title="Return the camera to this step's viewpoint (R)">reset view</button>
+      </div>
+    </header>
+
+    <div id="compass" title="North">
+      <div id="needle">N</div>
+    </div>
+
+    <aside id="legend">
+      <h3>Who is who</h3>
+      <ul id="legend-list"></ul>
+      <p class="fine">
+        Each figure stands for <span id="figure-scale">5</span> soldiers. Greek numbers follow
+        Herodotus 7.202–203; the Persian host is drawn at 30,000 and its true size is disputed.
+      </p>
+      <h3>About this reconstruction</h3>
+      <p class="fine">
+        The terrain is a schematic model built from the ancient descriptions, not survey data. The
+        coastline follows the geological reconstruction of Kraft, Rapp, Szemler, Tziavos &amp; Kase
+        (<em>Journal of Field Archaeology</em> 14, 1987), which places the 480 BC shore within tens of
+        metres of the cliffs; today's plain is river silt. The exact course of the Anopaea path is
+        still debated. Narration follows Herodotus 7.175–239 with Diodorus 11.4–11 and Plutarch where
+        noted.
+      </p>
+    </aside>
+
+    <section id="panel" aria-live="polite">
+      <button id="panel-toggle" class="grip" title="Show or hide the narration" aria-label="Toggle narration"></button>
+      <div class="stage">
+        <div class="kicker-row">
+          <span id="kicker" class="kicker"></span>
+          <span id="counter" class="counter"></span>
+        </div>
+        <h2 id="stage-title"></h2>
+        <p id="stage-text"></p>
+      </div>
+      <nav class="controls" aria-label="Walkthrough steps">
+        <button id="prev" class="step" aria-label="Previous step">‹</button>
+        <div id="dots" role="list"></div>
+        <button id="next" class="step" aria-label="Next step">›</button>
+        <button id="auto" class="chip" title="Advance automatically (Space)">▶ auto</button>
+      </nav>
+      <p class="hint">drag to orbit · scroll to zoom · right-drag to pan · ← → steps</p>
+    </section>
+
+    <script type="module" src="/src/thermopylae/main.ts"></script>
+  </body>
+</html>

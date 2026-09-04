@@ -60,7 +60,10 @@ export default function Tooltip() {
           {hoveredEvent.k === 'battle' && '⚔ '}
           {formatYear(hoveredEvent.y)}
         </strong>
-        <div className="tooltip-sub">{hoveredEvent.t}</div>
+        <div className="tooltip-sub">
+          {hoveredEvent.t}
+          {hoveredEvent.w && ' · click for the 3D walkthrough'}
+        </div>
       </div>
     )
   }

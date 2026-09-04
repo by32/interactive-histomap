@@ -164,6 +164,9 @@ button {
   color: var(--ink);
   border-color: var(--ink-soft);
 }
+a.about-btn {
+  text-decoration: none;
+}
 
 /* ---------- search ---------- */
 .search-box {
@@ -434,6 +437,11 @@ button {
   stroke-width: 1;
   cursor: pointer;
   transition: r 0.1s ease;
+}
+.event-dot.walkthrough {
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  r: 4;
 }
 .event-dot.battle {
   fill: var(--panel);
@@ -719,6 +727,9 @@ button {
   .about-btn {
     padding: 4px 7px;
     font-size: 12px;
+  }
+  .walkthrough-link {
+    display: none;
   }
   .ribbon-title {
     display: none;

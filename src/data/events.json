@@ -18,7 +18,7 @@
   { "y": -550, "t": "Cyrus the Great founds the Persian Empire", "e": "achaemenid" },
   { "y": -508, "t": "Democracy at Athens", "e": "greece-city-states" },
   { "y": -490, "t": "Marathon", "e": "greece-city-states", "k": "battle", "c": [23.96, 38.15] },
-  { "y": -480, "t": "Thermopylae and Salamis", "e": "achaemenid", "k": "battle", "c": [23.57, 37.95] },
+  { "y": -480, "t": "Thermopylae and Salamis", "e": "achaemenid", "k": "battle", "c": [23.57, 37.95], "w": "thermopylae.html" },
   { "y": -431, "t": "Peloponnesian War begins", "e": "greece-city-states" },
   { "y": -334, "t": "Alexander invades Persia", "e": "macedon" },
   { "y": -331, "t": "Gaugamela: Alexander shatters Persia", "e": "macedon", "k": "battle", "c": [43.44, 36.56] },
