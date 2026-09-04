@@ -183,7 +183,7 @@ function ribbon(xz: [number, number][], width: number, color: number, ground: Gr
 }
 
 /** a dashed line along z = f(x), draped on the ground: the ghost of a coastline */
-function dashedAlongX(zOf: (x: number) => number, color: number, ground: Ground, lift: number): THREE.Mesh {
+function dashedAlongX(zOf: (x: number) => number, color: number, ground: Ground, lift: number, width = 7): THREE.Mesh {
   const segs: THREE.BufferGeometry[] = []
   const dash = 70
   const gap = 45
@@ -195,7 +195,7 @@ function dashedAlongX(zOf: (x: number) => number, color: number, ground: Ground,
     const cz = (z0 + z1) / 2
     const len = Math.hypot(x1 - x, z1 - z0)
     const y = Math.max(ground(cx, cz), 0) + lift
-    const g = new THREE.BoxGeometry(len, 1.2, 7)
+    const g = new THREE.BoxGeometry(len, 1.2, width)
       .rotateY(-Math.atan2(z1 - z0, x1 - x))
       .translate(cx, y, cz)
     segs.push(g)
@@ -204,7 +204,7 @@ function dashedAlongX(zOf: (x: number) => number, color: number, ground: Ground,
   const mat = new THREE.MeshStandardMaterial({
     color,
     emissive: color,
-    emissiveIntensity: 0.35,
+    emissiveIntensity: 0.5,
     roughness: 0.6,
     polygonOffset: true,
     polygonOffsetFactor: -3,
@@ -214,7 +214,7 @@ function dashedAlongX(zOf: (x: number) => number, color: number, ground: Ground,
 
 /** what the 480 BC view shows of today: where the coast is now, drawn over the water */
 export function buildModernCoastGhost(): THREE.Mesh {
-  const m = dashedAlongX(modernShore, 0xf4e6c8, () => 0, 1.0)
+  const m = dashedAlongX(modernShore, 0xf4e6c8, () => 0, 1.0, 14)
   m.name = 'ghost-modern-coast'
   return m
 }
@@ -238,7 +238,7 @@ export function buildModernFeatures(): THREE.Group {
   const figure = new THREE.Mesh(new THREE.BoxGeometry(2.2, 6, 2.2), new THREE.MeshStandardMaterial({ color: 0x6b5a3e, roughness: 0.5, metalness: 0.4 }))
   figure.position.set(mx, my + 10, mz + 2.5)
   g.add(plinth, stele, figure)
-  const ghost = dashedAlongX(shoreline, 0x6fb7d6, ground, 0.7)
+  const ghost = dashedAlongX(shoreline, 0x2f8fc9, ground, 0.7, 14)
   ghost.name = 'ghost-ancient-shore'
   g.add(ghost)
   return g
