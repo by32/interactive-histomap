@@ -2,6 +2,8 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { heightAt, stripZ, clampToStrip, ANOPAEA_XZ } from './terrain'
 import { GROUPS, type GroupDef, type Placement } from './script'
+import { interval } from './timeline'
+import type { UnitKeyframe } from './film'
 
 /* ---------- deterministic randomness ---------- */
 const mulberry = (seed: number) => () => {
@@ -34,7 +36,7 @@ export function pathAt(t: number, out: THREE.Vector3, dir?: THREE.Vector3) {
 /* ---------- figure geometry ---------- */
 const FIGURE_SIZE = 1.6
 
-function paint(geom: THREE.BufferGeometry, color: number): THREE.BufferGeometry {
+function paint(geom: THREE.BufferGeometry, color: number, gait = 0): THREE.BufferGeometry {
   const c = new THREE.Color(color)
   const n = geom.attributes.position.count
   const arr = new Float32Array(n * 3)
@@ -44,14 +46,19 @@ function paint(geom: THREE.BufferGeometry, color: number): THREE.BufferGeometry 
     arr[i * 3 + 2] = c.b
   }
   geom.setAttribute('color', new THREE.BufferAttribute(arr, 3))
+  geom.setAttribute('gait', new THREE.BufferAttribute(new Float32Array(n).fill(gait), 1))
   return geom
 }
 
 /** a stylised soldier, ~2 m tall, facing local +z */
 function figureGeometry(group: GroupDef): THREE.BufferGeometry {
   const parts: THREE.BufferGeometry[] = []
-  const body = new THREE.CylinderGeometry(0.42, 0.5, 1.45, 6).translate(0, 0.9, 0)
+  const body = new THREE.CylinderGeometry(0.42, 0.5, 1.15, 6).translate(0, 1.05, 0)
   parts.push(paint(body, group.color))
+  for (const side of [-1, 1]) {
+    const leg = new THREE.CylinderGeometry(0.12, 0.1, 0.65, 5).translate(side * 0.22, 0.325, 0)
+    parts.push(paint(leg, 0x806345, side))
+  }
   const head = new THREE.SphereGeometry(0.3, 6, 5).translate(0, 1.85, 0)
   parts.push(paint(head, group.side === 'greek' ? 0xb98a5a : 0xc9a074))
   if (group.side === 'greek') {
@@ -92,6 +99,8 @@ interface Layout {
   t?: Float32Array
   march?: number
   abreast?: number
+  coastal?: Extract<Placement, { kind: 'coastal-column' }>
+  onStrip?: boolean
 }
 
 const tmpV = new THREE.Vector3()
@@ -103,8 +112,9 @@ function layoutFor(group: GroupDef, p: Placement, seed: number): Layout {
   const rnd = mulberry(seed)
   const jitter = () => (rnd() - 0.5) * 0.9
   // strip placements resolve their centre from the strip fraction and keep every figure on the flat
-  const onStrip = p.kind !== 'hidden' && p.kind !== 'column' && p.f !== undefined
-  const cz = p.kind !== 'hidden' && p.kind !== 'column' ? (p.f !== undefined ? stripZ(p.x, p.f) : (p.z ?? 0)) : 0
+  const spot = p.kind !== 'hidden' && p.kind !== 'column' && p.kind !== 'coastal-column' ? p : null
+  const onStrip = spot !== null && spot.f !== undefined
+  const cz = spot ? (spot.f !== undefined ? stripZ(spot.x, spot.f) : (spot.z ?? 0)) : 0
   const set = (i: number, x: number, z: number, heading: number) => {
     if (onStrip) z = clampToStrip(x, z)
     data[i * 4] = x
@@ -131,7 +141,7 @@ function layoutFor(group: GroupDef, p: Placement, seed: number): Layout {
         const z = cz - lx * sinH + lz * cosH
         set(i, x, z, p.heading + (rnd() - 0.5) * 0.15)
       }
-      return { data, visible: true }
+      return { data, visible: true, onStrip }
     }
     case 'scatter':
       for (let i = 0; i < n; i++) {
@@ -147,7 +157,7 @@ function layoutFor(group: GroupDef, p: Placement, seed: number): Layout {
         }
         set(i, x, z, rnd() * Math.PI * 2)
       }
-      return { data, visible: true }
+      return { data, visible: true, onStrip }
     case 'ring':
       for (let i = 0; i < n; i++) {
         const a = rnd() * Math.PI * 2
@@ -157,7 +167,14 @@ function layoutFor(group: GroupDef, p: Placement, seed: number): Layout {
         // face the centre (heading 0 = +z)
         set(i, x, z, Math.atan2(p.x - x, cz - z))
       }
-      return { data, visible: true }
+      return { data, visible: true, onStrip }
+    case 'coastal-column': {
+      for (let i = 0; i < n; i++) {
+        coastalAt(p, i, n, tmpV, tmpD)
+        set(i, tmpV.x, tmpV.z, Math.atan2(tmpD.x, tmpD.z))
+      }
+      return { data, visible: true, coastal: p, onStrip: true }
+    }
     case 'column': {
       const rows = Math.ceil(n / p.abreast)
       const t = new Float32Array(n)
@@ -171,6 +188,16 @@ function layoutFor(group: GroupDef, p: Placement, seed: number): Layout {
       return layout
     }
   }
+}
+
+function coastalAt(p: Extract<Placement, { kind: 'coastal-column' }>, i: number, count: number, out: THREE.Vector3, dir: THREE.Vector3) {
+  const row = Math.floor(i / p.abreast)
+  const rows = Math.ceil(count / p.abreast)
+  const x = p.head + (p.tail - p.head) * row / Math.max(1, rows - 1)
+  const lane = (i % p.abreast) - (p.abreast - 1) / 2
+  const z = clampToStrip(x, stripZ(x, p.f) + lane * 2.4)
+  out.set(x, heightAt(x, z), z)
+  dir.set(2, 0, stripZ(x + 1, p.f) - stripZ(x - 1, p.f)).normalize()
 }
 
 function placeColumn(layout: Layout, offset: number, rnd?: () => number) {
@@ -215,9 +242,25 @@ export class Armies {
   private progress = 1
   private stageTime = 0
   private material: THREE.MeshStandardMaterial
+  private filmKeys: readonly UnitKeyframe[] = []
+  private filmLayouts: Layout[][] = []
+  private filmProgress: number | null = null
+  private marchTime = { value: 0 }
 
   constructor() {
     this.material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0.05 })
+    this.material.onBeforeCompile = (shader) => {
+      shader.uniforms.marchTime = this.marchTime
+      shader.vertexShader = shader.vertexShader.replace('#include <common>', `#include <common>
+        attribute float gait;
+        attribute vec2 motion;
+        uniform float marchTime;`)
+      shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+        float stride = sin(marchTime * 8.0 + motion.x);
+        transformed.z += gait * stride * max(0.0, 1.04 - position.y) * 0.42 * motion.y;
+        transformed.y += abs(stride) * 0.10 * motion.y * (gait == 0.0 ? 1.0 : 0.3);
+        transformed.x += sin(marchTime * 4.0 + motion.x) * 0.025 * motion.y * max(position.y, 0.0);`)
+    }
     const immortals = GROUPS.find((g) => g.id === 'immortals')!
     const tg = new THREE.BufferGeometry()
     tg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(immortals.count * 3), 3))
@@ -235,6 +278,9 @@ export class Armies {
     this.root.add(this.torches)
     GROUPS.forEach((def, gi) => {
       const geom = figureGeometry(def)
+      const motion = new Float32Array(def.count * 2)
+      for (let i = 0; i < def.count; i++) motion[i * 2] = i * 2.399963
+      geom.setAttribute('motion', new THREE.InstancedBufferAttribute(motion, 2))
       const mesh = new THREE.InstancedMesh(geom, this.material, def.count)
       mesh.frustumCulled = false
       mesh.name = def.id
@@ -246,14 +292,41 @@ export class Armies {
     this.apply()
   }
 
-  setStage(units: Record<string, Placement>) {
+  setStage(units: Record<string, Placement>, snap = false) {
+    this.filmProgress = null
     for (const a of this.armies) {
       // start from where the figures currently stand
       a.from = this.snapshot(a)
       a.to = layoutFor(a.def, units[a.def.id] ?? { kind: 'hidden' }, a.seed)
     }
-    this.progress = 0
+    this.progress = snap ? 1 : 0
     this.stageTime = 0
+    if (snap) this.apply()
+  }
+
+  /** Cache authored arrangements once. Sampling is independent of playback history. */
+  prepareFilm(keys: readonly UnitKeyframe[]) {
+    this.filmKeys = keys
+    this.filmLayouts = this.armies.map((a) => {
+      const cache = new Map<string, Layout>()
+      return keys.map((key) => {
+        const placement = key.units[a.def.id] ?? { kind: 'hidden' as const }
+        const id = JSON.stringify(placement)
+        if (!cache.has(id)) cache.set(id, layoutFor(a.def, placement, a.seed))
+        return cache.get(id)!
+      })
+    })
+  }
+
+  sampleFilm(time: number) {
+    const { index, progress } = interval(this.filmKeys, time)
+    this.filmProgress = progress
+    this.marchTime.value = time
+    this.armies.forEach((army, i) => {
+      army.from = this.filmLayouts[i][index]
+      army.to = this.filmLayouts[i][index + 1]
+    })
+    this.apply()
   }
 
   /** the current interpolated layout, so an interrupted move continues smoothly */
@@ -279,6 +352,7 @@ export class Armies {
     const wasDone = this.progress >= 1
     this.progress = Math.min(1, this.progress + dt / TRANSITION_S)
     this.stageTime += dt
+    this.marchTime.value = this.stageTime
     let marching = false
     for (const a of this.armies) {
       if (a.to.march && a.to.visible) {
@@ -290,7 +364,7 @@ export class Armies {
   }
 
   private apply() {
-    const k = ease(this.progress)
+    const k = this.filmProgress ?? ease(this.progress)
     const m = new THREE.Matrix4()
     const q = new THREE.Quaternion()
     const pos = new THREE.Vector3()
@@ -298,10 +372,16 @@ export class Armies {
     const up = new THREE.Vector3(0, 1, 0)
     for (const a of this.armies) {
       const { from, to, mesh } = a
+      const motion = mesh.geometry.getAttribute('motion') as THREE.InstancedBufferAttribute
       const n = a.def.count
       const fromS = from.visible ? 1 : 0
       const toS = to.visible ? 1 : 0
       const s = fromS + (toS - fromS) * k
+      const coastal = from.coastal && to.coastal ? {
+        ...to.coastal,
+        head: from.coastal.head + (to.coastal.head - from.coastal.head) * k,
+        tail: from.coastal.tail + (to.coastal.tail - from.coastal.tail) * k,
+      } : null
       if (s <= 0.001 && !to.visible) {
         mesh.count = 0
         mesh.instanceMatrix.needsUpdate = true
@@ -320,10 +400,28 @@ export class Armies {
         const tz = to.visible ? to.data[o + 2] : fz
         const th = to.visible ? to.data[o + 3] : fh
         pos.set(fx + (tx - fx) * k, fy + (ty - fy) * k, fz + (tz - fz) * k)
+        let heading = fh + Math.atan2(Math.sin(th - fh), Math.cos(th - fh)) * k
+        if (this.filmProgress !== null) {
+          if (from.t && to.t) {
+            // Interpolate distance along the trail, never a chord through the mountain.
+            pathAt(from.t[i] + (to.t[i] - from.t[i]) * k, pos, tmpD)
+            const lane = (i % (to.abreast ?? 3)) - ((to.abreast ?? 3) - 1) / 2
+            pos.x -= tmpD.z * lane * 1.6
+            pos.z += tmpD.x * lane * 1.6
+            pos.y = heightAt(pos.x, pos.z)
+            heading = Math.atan2(tmpD.x, tmpD.z)
+          } else if (coastal) {
+            coastalAt(coastal, i, n, pos, tmpD)
+            heading = Math.atan2(tmpD.x, tmpD.z)
+          } else if (from !== to) {
+            if (from.onStrip && to.onStrip) pos.z = clampToStrip(pos.x, pos.z)
+            pos.y = heightAt(pos.x, pos.z)
+          }
+        }
+        const moving = this.filmProgress !== null ? from !== to : (k < 1 || Boolean(to.march))
+        motion.setY(i, moving && from.visible && to.visible ? 1 : 0)
         // shortest-way heading interpolation
-        let dh = th - fh
-        dh = Math.atan2(Math.sin(dh), Math.cos(dh))
-        q.setFromAxisAngle(up, fh + dh * k)
+        q.setFromAxisAngle(up, heading)
         scl.setScalar(s)
         m.compose(pos, q, scl)
         mesh.setMatrixAt(i, m)
@@ -336,6 +434,7 @@ export class Armies {
         }
       }
       mesh.instanceMatrix.needsUpdate = true
+      motion.needsUpdate = true
     }
   }
 }

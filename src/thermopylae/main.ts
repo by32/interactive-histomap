@@ -4,6 +4,8 @@ import './style.css'
 import { heightAt, modernHeightAt } from './terrain'
 import { GROUPS, STAGES, LABELS, FIGURE_SCALE, type Stage } from './script'
 import { Armies } from './units'
+import { CAMERA_KEYS, FILM_CHAPTERS, LIGHT_KEYS, UNIT_KEYS } from './film'
+import { FilmClock, FILM_DURATION, clampTime, interval, smoothstep } from './timeline'
 import {
   buildTerrain,
   buildModernFeatures,
@@ -74,6 +76,15 @@ const path = buildPath()
 scene.add(path)
 const armies = new Armies()
 scene.add(armies.root)
+const film = new FilmClock()
+let filmActive = false
+let followCamera = true
+let previousTopography = false
+let filmChapter = -1
+let renderedFilmTime = -1
+let hashSecond = -1
+let filmPrepared = false
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
 
 /* ---------- lighting transitions ---------- */
 let lightFrom: LightPreset = clonePreset(LIGHTS.day)
@@ -124,9 +135,11 @@ function flyTo(stage: Stage) {
 // any pointer interaction hands the camera back to the viewer
 canvas.addEventListener('pointerdown', () => {
   camK = 1
+  exploreFilm()
 })
 canvas.addEventListener('wheel', () => {
   camK = 1
+  exploreFilm()
 }, { passive: true })
 
 /* ---------- labels ---------- */
@@ -199,7 +212,7 @@ STAGES.forEach((s, i) => {
 })
 
 function go(i: number, fly = true) {
-  const idx = Math.max(0, Math.min(STAGES.length - 1, i))
+  const idx = Number.isFinite(i) ? Math.max(0, Math.min(STAGES.length - 1, Math.floor(i))) : 0
   if (idx === current) return
   current = idx
   const stage = STAGES[idx]
@@ -233,7 +246,12 @@ autoBtn.addEventListener('click', () => {
   autoBtn.textContent = autoplay ? '⏸ auto' : '▶ auto'
   autoTimer = 0
 })
-$('#refly').addEventListener('click', () => flyTo(STAGES[current]))
+$('#refly').addEventListener('click', () => {
+  if (filmActive) {
+    followCamera = true
+    renderFilm(true)
+  } else flyTo(STAGES[current])
+})
 /* ---------- topography: 480 BC or today ---------- */
 function setModern(on: boolean) {
   if (on && !terrainModern) {
@@ -255,8 +273,8 @@ function setModern(on: boolean) {
   else params.delete('t')
   history.replaceState(null, '', `#${params.toString()}`)
 }
-$('#topo-ancient').addEventListener('click', () => setModern(false))
-$('#topo-modern').addEventListener('click', () => setModern(true))
+$('#topo-ancient').addEventListener('click', () => { if (filmActive) exitFilm(); setModern(false) })
+$('#topo-modern').addEventListener('click', () => { if (filmActive) exitFilm(); setModern(true) })
 
 $('#labels-toggle').addEventListener('click', (e) => {
   labelsOn = !labelsOn
@@ -271,7 +289,27 @@ $('#panel-toggle').addEventListener('click', () => {
 })
 
 window.addEventListener('keydown', (e) => {
-  if ((e.target as HTMLElement).tagName === 'INPUT') return
+  if ((e.target as HTMLElement).closest('input, select, textarea, [contenteditable="true"]')) return
+  if (filmActive) {
+    if (e.key === 'Escape') exitFilm()
+    else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      e.preventDefault()
+      film.playing = false
+      film.seek(film.time + (e.key === 'ArrowRight' ? 5 : -5))
+      renderFilm(true)
+    } else if (e.key === 'Home' || e.key === 'End') {
+      e.preventDefault()
+      film.playing = false
+      film.seek(e.key === 'Home' ? 0 : FILM_DURATION)
+      renderFilm(true)
+    } else if (e.key === ' ' && (e.target as HTMLElement).tagName !== 'BUTTON') {
+      e.preventDefault()
+      toggleFilm()
+    } else if (e.key === 'r') $('#film-replay').click()
+    else if (e.key === 'l') $('#labels-toggle').click()
+    else if (e.key === 't') { exitFilm(); setModern(!modern) }
+    return
+  }
   if (e.key === 'ArrowRight' || e.key === 'PageDown') go(current + 1)
   else if (e.key === 'ArrowLeft' || e.key === 'PageUp') go(current - 1)
   else if (e.key === 'Home') go(0)
@@ -279,7 +317,7 @@ window.addEventListener('keydown', (e) => {
   else if (e.key === 'r') flyTo(STAGES[current])
   else if (e.key === 'l') $('#labels-toggle').click()
   else if (e.key === 't') setModern(!modern)
-  else if (e.key === ' ') {
+  else if (e.key === ' ' && (e.target as HTMLElement).tagName !== 'BUTTON') {
     e.preventDefault()
     autoBtn.click()
   }
@@ -287,9 +325,177 @@ window.addEventListener('keydown', (e) => {
 
 // editing #s=… in the address bar jumps to that step
 window.addEventListener('hashchange', () => {
-  const n = Number(new URLSearchParams(location.hash.slice(1)).get('s'))
+  const params = new URLSearchParams(location.hash.slice(1))
+  if (params.has('film')) {
+    enterFilm(Number(params.get('film')), false)
+    return
+  }
+  if (filmActive) exitFilm()
+  const n = Number(params.get('s'))
   if (Number.isFinite(n) && n >= 1) go(n - 1)
+  setModern(params.get('t') === 'today')
 })
+
+/* ---------- one-minute film: one clock drives every layer ---------- */
+const filmPanel = $('#cinema')
+const scrub = $<HTMLInputElement>('#film-scrub')
+const playFilmBtn = $<HTMLButtonElement>('#film-play')
+const cameraPath = new THREE.CatmullRomCurve3(CAMERA_KEYS.map((key) => {
+  const point = new THREE.Vector3()
+  resolve(key.pos, point)
+  return point
+}), false, 'centripetal')
+const targetPath = new THREE.CatmullRomCurve3(CAMERA_KEYS.map((key) => {
+  const point = new THREE.Vector3()
+  resolve(key.target, point)
+  return point
+}), false, 'centripetal')
+
+FILM_CHAPTERS.forEach((chapter, index) => {
+  const button = document.createElement('button')
+  button.textContent = chapter.label
+  button.title = `Jump to ${chapter.time} seconds: ${chapter.title}`
+  button.addEventListener('click', () => {
+    film.playing = false
+    film.seek(chapter.time)
+    followCamera = !reducedMotion.matches
+    filmChapter = index - 1
+    renderFilm(true)
+  })
+  $('#film-chapters').appendChild(button)
+})
+
+function updateFilmControls() {
+  playFilmBtn.textContent = film.playing ? '⏸ Pause' : film.time === FILM_DURATION ? '▶ Replay' : '▶ Play'
+  playFilmBtn.setAttribute('aria-label', film.playing ? 'Pause film' : film.time === FILM_DURATION ? 'Replay film from beginning' : 'Play film')
+  playFilmBtn.setAttribute('aria-pressed', String(film.playing))
+  const follow = $('#film-follow')
+  follow.classList.toggle('on', followCamera)
+  follow.setAttribute('aria-pressed', String(followCamera))
+  document.body.dataset.playing = String(film.playing)
+}
+
+function renderFilm(force = false) {
+  if (!filmActive) return
+  updateFilmControls()
+  if (!force && renderedFilmTime === film.time) return
+  renderedFilmTime = film.time
+  armies.sampleFilm(film.time)
+  const light = interval(LIGHT_KEYS, film.time)
+  lerpPreset(LIGHTS[light.from.light], LIGHTS[light.to.light], smoothstep(light.progress), lightNow)
+  applyLight(lightNow)
+  // A tiny deterministic flicker freezes and rewinds along with the torches.
+  armies.setTorchGlow(lightNow.fires * (0.94 + 0.06 * Math.sin(film.time * 11)))
+  if (followCamera) {
+    const shot = interval(CAMERA_KEYS, film.time)
+    const fraction = (shot.index + shot.progress) / (CAMERA_KEYS.length - 1)
+    cameraPath.getPoint(fraction, camera.position)
+    targetPath.getPoint(fraction, controls.target)
+    camera.position.y = Math.max(camera.position.y, heightAt(camera.position.x, camera.position.z) + 25)
+    controls.update()
+  }
+  const chapterIndex = FILM_CHAPTERS.findLastIndex((chapter) => film.time >= chapter.time)
+  const chapter = FILM_CHAPTERS[chapterIndex]
+  if (filmChapter !== chapterIndex) {
+    filmChapter = chapterIndex
+    $('#film-kicker').textContent = STAGES[chapter.stage].kicker
+    $('#film-title').textContent = chapter.title
+    $('#film-caption').textContent = chapter.caption
+    Array.from($('#film-chapters').children).forEach((el, i) => {
+      if (i === chapterIndex) el.setAttribute('aria-current', 'step')
+      else el.removeAttribute('aria-current')
+    })
+    document.body.dataset.stage = STAGES[chapter.stage].id
+  }
+  scrub.value = String(film.time)
+  const seconds = Math.floor(film.time)
+  const stamp = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
+  $('#film-time').textContent = `${stamp} / 1:00`
+  scrub.setAttribute('aria-valuetext', `${stamp} of 1:00, ${chapter.label}`)
+  if (force || hashSecond !== seconds) {
+    hashSecond = seconds
+    const params = new URLSearchParams(location.hash.slice(1))
+    params.set('s', String(chapter.stage + 1))
+    params.set('film', film.time.toFixed(1))
+    params.delete('cam')
+    history.replaceState(null, '', `#${params.toString()}`)
+  }
+}
+
+function enterFilm(time = 0, play = true) {
+  if (!filmActive) previousTopography = modern
+  if (!filmPrepared) {
+    armies.prepareFilm(UNIT_KEYS)
+    filmPrepared = true
+  }
+  filmActive = true
+  autoplay = false
+  autoBtn.classList.remove('on')
+  autoBtn.textContent = '▶ auto'
+  camK = lightK = 1
+  controls.update()
+  controls.enableDamping = false
+  setModern(false)
+  followCamera = !reducedMotion.matches
+  film.seek(clampTime(time))
+  film.playing = false
+  if (play) film.play()
+  filmChapter = -1
+  document.body.dataset.mode = 'film'
+  $('#panel').hidden = true
+  filmPanel.hidden = false
+  const material = path.material as THREE.MeshStandardMaterial
+  material.emissiveIntensity = 1.1
+  material.opacity = 1
+  // Reduced-motion mode uses the existing overview while the viewer controls the camera.
+  if (!followCamera) {
+    resolve(STAGES[6].camera.pos, camera.position)
+    resolve(STAGES[6].camera.target, controls.target)
+    controls.update()
+  }
+  renderFilm(true)
+}
+
+function exitFilm() {
+  const stage = FILM_CHAPTERS[Math.max(0, filmChapter)].stage
+  filmActive = false
+  film.playing = false
+  filmPanel.hidden = true
+  $('#panel').hidden = false
+  delete document.body.dataset.mode
+  delete document.body.dataset.playing
+  controls.enableDamping = true
+  const params = new URLSearchParams(location.hash.slice(1))
+  params.delete('film')
+  history.replaceState(null, '', `#${params.toString()}`)
+  current = -1
+  go(stage, !reducedMotion.matches)
+  armies.setStage(STAGES[stage].units, true)
+  setModern(previousTopography)
+  $('#watch-film').focus({ preventScroll: true })
+}
+
+function exploreFilm() {
+  if (!filmActive) return
+  film.playing = false
+  followCamera = false
+  renderFilm(true)
+}
+
+function toggleFilm() {
+  if (film.playing) film.playing = false
+  else film.play()
+  renderFilm(true)
+}
+
+$('#watch-film').addEventListener('click', () => { enterFilm(); playFilmBtn.focus({ preventScroll: true }) })
+$('#exit-film').addEventListener('click', exitFilm)
+playFilmBtn.addEventListener('click', toggleFilm)
+$('#film-replay').addEventListener('click', () => { followCamera = !reducedMotion.matches; film.seek(0); film.play(); renderFilm(true) })
+$('#film-follow').addEventListener('click', () => { followCamera = !followCamera; renderFilm(true) })
+$('#film-speed').addEventListener('change', (event) => { film.speed = Number((event.target as HTMLSelectElement).value) })
+scrub.addEventListener('input', () => { film.playing = false; film.seek(Number(scrub.value)); renderFilm(true) })
+document.addEventListener('visibilitychange', () => { if (document.hidden && filmActive) { film.playing = false; updateFilmControls() } })
 
 /* ---------- legend ---------- */
 const legendList = $('#legend-list')
@@ -341,7 +547,10 @@ function frame() {
     applyLight(lightNow)
   }
 
-  armies.update(dt)
+  if (filmActive) {
+    film.tick(dt)
+    renderFilm()
+  } else armies.update(dt)
 
   if (autoplay) {
     autoTimer += dt
@@ -358,7 +567,7 @@ function frame() {
 
   updateLabels()
   // flag quiet frames for tests and screenshots
-  const settled = camK >= 1 && lightK >= 1 && armies.settled
+  const settled = filmActive ? !film.playing : camK >= 1 && lightK >= 1 && armies.settled
   if (document.body.dataset.settled !== String(settled)) document.body.dataset.settled = String(settled)
   renderer.render(scene, camera)
   requestAnimationFrame(frame)
@@ -368,7 +577,7 @@ function frame() {
 applyLight(lightNow)
 const params = new URLSearchParams(location.hash.slice(1))
 const fromHash = Number(params.get('s'))
-const start = Number.isFinite(fromHash) && fromHash >= 1 ? fromHash - 1 : 0
+const start = Number.isFinite(fromHash) && fromHash >= 1 ? Math.min(STAGES.length - 1, Math.floor(fromHash) - 1) : 0
 go(start, false)
 // snap the camera to the opening view, then let the loop take over
 resolve(STAGES[start].camera.pos, camera.position)
@@ -380,5 +589,6 @@ if (cam && cam.length === 6 && cam.every(Number.isFinite)) {
   resolve([cam[3], cam[4], cam[5]], controls.target)
 }
 setModern(params.get('t') === 'today')
+if (params.has('film')) enterFilm(Number(params.get('film')), false)
 document.body.classList.add('ready')
 frame()
