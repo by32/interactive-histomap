@@ -317,10 +317,20 @@ export interface LabelDef {
   up?: number
   /** de-emphasised place name */
   minor?: boolean
+  /** shown only in one topography; both when omitted */
+  mode?: 'ancient' | 'modern'
 }
 
 export const LABELS: LabelDef[] = [
-  { text: 'Malian Gulf', x: -300, z: -1700, up: 2 },
+  { text: 'Malian Gulf', x: -300, z: -1700, up: 2, mode: 'ancient' },
+  { text: 'coastline today', x: 400, z: -4040, up: 3, minor: true, mode: 'ancient' },
+  { text: 'Malian Gulf', x: -300, z: -4500, up: 2, mode: 'modern' },
+  { text: 'shoreline in 480 BC', x: -1100, z: -520, up: 4, minor: true, mode: 'modern' },
+  { text: 'silted plain of the Spercheios', x: 300, z: -2600, up: 4, mode: 'modern' },
+  { text: 'Spercheios', x: -2200, z: -2950, up: 4, minor: true, mode: 'modern' },
+  { text: 'A1 motorway', x: 1200, z: -1730, up: 4, minor: true, mode: 'modern' },
+  { text: 'old national road', x: -1500, z: -540, up: 4, minor: true, mode: 'modern' },
+  { text: 'Leonidas monument (1955)', x: 330, z: -365, up: 16, mode: 'modern' },
   { text: 'Mount Kallidromo', x: 100, z: 1750, up: 40 },
   { text: 'West Gate', x: -2000, z: -235, up: 12 },
   { text: 'Middle Gate · Phocian Wall', x: 60, z: -285, up: 10 },

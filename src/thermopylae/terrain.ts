@@ -11,7 +11,10 @@
  * → south (+, the mountain); y is elevation.
  */
 
-export const EXTENT = { xMin: -3600, xMax: 3000, zMin: -2600, zMax: 2000 }
+export const EXTENT = { xMin: -3600, xMax: 3000, zMin: -4700, zMax: 2000 }
+
+/** half-width of the gentle ramp between land and water, metres */
+export const BEACH = 25
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v))
 export const smooth = (a: number, b: number, t: number) => {
@@ -127,7 +130,6 @@ export const KOLONOS = { x: 350, z: -125, r: 62, h: 15 }
 export function heightAt(x: number, z: number): number {
   const cf = cliffFoot(x)
   const sh = shoreline(x)
-  const BEACH = 25
   if (z < sh - BEACH) {
     const d = sh - BEACH - z
     return Math.max(-70, -1.0 - d * 0.035 - 4 * fbm(x * 0.003, z * 0.003, 2))
@@ -165,6 +167,67 @@ export function heightAt(x: number, z: number): number {
   h *= 1 - 0.35 * smooth(-2600, -3600, x)
   return h
 }
+
+/* ---------- the pass today ---------- */
+
+/**
+ * The Spercheios has filled the head of the gulf: today's coast lies 3–5 km
+ * north of the cliffs, bulging furthest where the river's delta builds out.
+ * A schematic line, not a survey.
+ */
+export function modernShore(x: number): number {
+  return -4050 - 380 * gauss(x, -1800, 1300) + 70 * (fbm(x * 0.0015, 11.7, 3) - 0.5)
+}
+
+/**
+ * Today's surface: the mountain and the old coastal strip are unchanged, the
+ * ancient gulf is a flat alluvial plain that falls from ~1.6 m at the old
+ * shore to the beach on the modern coast.
+ */
+export function modernHeightAt(x: number, z: number): number {
+  const sh = shoreline(x)
+  if (z >= sh + BEACH) return heightAt(x, z)
+  const ms = modernShore(x)
+  if (z < ms - BEACH) {
+    const d = ms - BEACH - z
+    return Math.max(-70, -1.0 - d * 0.03 - 4 * fbm(x * 0.003, z * 0.003, 2))
+  }
+  const s = z - ms
+  if (s < BEACH) return -1.0 + 1.8 * smooth(-BEACH, BEACH, s)
+  const t = (z - ms - BEACH) / Math.max(1, sh + BEACH - ms - BEACH)
+  return 0.8 + 0.8 * t + 0.5 * (fbm(x * 0.004, z * 0.004, 2) - 0.5)
+}
+
+/** the Spercheios channel across the plain, west to its mouth (x, z) */
+export const SPERCHEIOS_XZ: [number, number][] = [
+  [-3600, -1150],
+  [-3200, -1500],
+  [-2850, -1950],
+  [-2550, -2500],
+  [-2200, -2950],
+  [-1750, -3400],
+  [-1250, -3850],
+  [-700, -4350],
+]
+
+/** the old national road along the foot of the hills, past the monument */
+export const OLD_ROAD_XZ: [number, number][] = (() => {
+  const pts: [number, number][] = []
+  for (let x = EXTENT.xMin; x <= EXTENT.xMax; x += 100) pts.push([x, shoreline(x) - 130 - 60 * gauss(x, 300, 500)])
+  return pts
+})()
+
+/** the A1 motorway, straight across the plain */
+export const MOTORWAY_XZ: [number, number][] = [
+  [-3600, -1250],
+  [-2000, -1450],
+  [0, -1650],
+  [1500, -1750],
+  [3000, -1900],
+]
+
+/** the 1955 Leonidas monument, beside the old road opposite Kolonos */
+export const MONUMENT: [number, number] = [330, shoreline(330) - 95]
 
 export function slopeAt(x: number, z: number, e = 8): number {
   const dx = heightAt(x + e, z) - heightAt(x - e, z)

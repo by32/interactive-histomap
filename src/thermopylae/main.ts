@@ -1,11 +1,13 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import './style.css'
-import { heightAt } from './terrain'
+import { heightAt, modernHeightAt } from './terrain'
 import { GROUPS, STAGES, LABELS, FIGURE_SCALE, type Stage } from './script'
 import { Armies } from './units'
 import {
   buildTerrain,
+  buildModernFeatures,
+  buildModernCoastGhost,
   buildSea,
   buildSky,
   buildForest,
@@ -52,7 +54,16 @@ scene.add(sun, fill, hemi, ambient)
 
 const sky = buildSky()
 scene.add(sky.mesh)
-scene.add(buildTerrain())
+const terrainAncient = buildTerrain(false)
+scene.add(terrainAncient)
+const modernCoastGhost = buildModernCoastGhost()
+scene.add(modernCoastGhost)
+// today's ground is built the first time it is asked for
+let terrainModern: THREE.Mesh | null = null
+let modernFeatures: THREE.Group | null = null
+let modern = false
+/** the ground under the current topography */
+let groundAt: (x: number, z: number) => number = heightAt
 scene.add(buildSea())
 scene.add(buildForest())
 const camps = buildCamps()
@@ -125,7 +136,8 @@ const labelEls = LABELS.map((l) => {
   el.className = 'label' + (l.minor ? ' minor' : '')
   el.textContent = l.text
   labelLayer.appendChild(el)
-  return { el, pos: new THREE.Vector3(l.x, heightAt(l.x, l.z) + (l.up ?? 6), l.z) }
+  const ground = l.mode === 'modern' ? modernHeightAt : heightAt
+  return { el, mode: l.mode, pos: new THREE.Vector3(l.x, ground(l.x, l.z) + (l.up ?? 6), l.z) }
 })
 let labelsOn = true
 
@@ -137,7 +149,7 @@ function occluded(p: THREE.Vector3): boolean {
   for (let i = 1; i < steps; i++) {
     const t = i / steps
     march.lerpVectors(camera.position, p, t)
-    if (heightAt(march.x, march.z) > march.y + 4) return true
+    if (groundAt(march.x, march.z) > march.y + 4) return true
   }
   return false
 }
@@ -145,8 +157,8 @@ function occluded(p: THREE.Vector3): boolean {
 function updateLabels() {
   const w = canvas.clientWidth
   const h = canvas.clientHeight
-  for (const { el, pos } of labelEls) {
-    if (!labelsOn) {
+  for (const { el, pos, mode } of labelEls) {
+    if (!labelsOn || (mode && mode !== (modern ? 'modern' : 'ancient'))) {
       el.style.display = 'none'
       continue
     }
@@ -208,7 +220,9 @@ function go(i: number, fly = true) {
   if (fly) flyTo(stage)
   autoTimer = 0
   document.body.dataset.stage = stage.id
-  history.replaceState(null, '', `#s=${idx + 1}`)
+  const params = new URLSearchParams(location.hash.slice(1))
+  params.set('s', String(idx + 1))
+  history.replaceState(null, '', `#${params.toString()}`)
 }
 
 prevBtn.addEventListener('click', () => go(current - 1))
@@ -220,6 +234,30 @@ autoBtn.addEventListener('click', () => {
   autoTimer = 0
 })
 $('#refly').addEventListener('click', () => flyTo(STAGES[current]))
+/* ---------- topography: 480 BC or today ---------- */
+function setModern(on: boolean) {
+  if (on && !terrainModern) {
+    terrainModern = buildTerrain(true)
+    modernFeatures = buildModernFeatures()
+    scene.add(terrainModern, modernFeatures)
+  }
+  modern = on
+  groundAt = on ? modernHeightAt : heightAt
+  terrainAncient.visible = !on
+  modernCoastGhost.visible = !on
+  if (terrainModern) terrainModern.visible = on
+  if (modernFeatures) modernFeatures.visible = on
+  $('#topo-ancient').classList.toggle('on', !on)
+  $('#topo-modern').classList.toggle('on', on)
+  document.body.dataset.topo = on ? 'today' : '480bc'
+  const params = new URLSearchParams(location.hash.slice(1))
+  if (on) params.set('t', 'today')
+  else params.delete('t')
+  history.replaceState(null, '', `#${params.toString()}`)
+}
+$('#topo-ancient').addEventListener('click', () => setModern(false))
+$('#topo-modern').addEventListener('click', () => setModern(true))
+
 $('#labels-toggle').addEventListener('click', (e) => {
   labelsOn = !labelsOn
   ;(e.currentTarget as HTMLElement).classList.toggle('on', labelsOn)
@@ -240,6 +278,7 @@ window.addEventListener('keydown', (e) => {
   else if (e.key === 'End') go(STAGES.length - 1)
   else if (e.key === 'r') flyTo(STAGES[current])
   else if (e.key === 'l') $('#labels-toggle').click()
+  else if (e.key === 't') setModern(!modern)
   else if (e.key === ' ') {
     e.preventDefault()
     autoBtn.click()
@@ -292,7 +331,7 @@ function frame() {
     controls.target.lerpVectors(camFrom.target, camTo.target, k)
   }
   // never let the eye sink under the ground
-  const floor = heightAt(camera.position.x, camera.position.z) + 3
+  const floor = groundAt(camera.position.x, camera.position.z) + 3
   if (camera.position.y < floor) camera.position.y = floor
   controls.update()
 
@@ -340,5 +379,6 @@ if (cam && cam.length === 6 && cam.every(Number.isFinite)) {
   resolve([cam[0], cam[1], cam[2]], camera.position)
   resolve([cam[3], cam[4], cam[5]], controls.target)
 }
+setModern(params.get('t') === 'today')
 document.body.classList.add('ready')
 frame()

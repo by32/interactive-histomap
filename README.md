@@ -42,7 +42,10 @@ camp at Trachis to the last stand on Kolonos hill — the three gates, the Phoci
 hot springs, the night march of the Immortals along the Anopaea path (torches and all), the
 Phocians surprised at dawn, the dismissal of the allies. Armies are drawn as instanced
 figures, one per five soldiers, that redeploy between steps; the camera is free to orbit at
-any time (`reset view` returns it). `#s=7` deep-links to a step.
+any time (`reset view` returns it). `#s=7` deep-links to a step. A **480 BC / today** switch
+swaps the gulf for the silted plain as it is now — coast 3–5 km further north, the
+Spercheios, the old national road and the A1, the 1955 Leonidas monument — and dashes the
+other era's shoreline across each view so the two can be reconciled (`#t=today`).
 
 The terrain is a schematic heightfield generated in the browser from the ancient
 descriptions (Herodotus 7.176, 7.198–200, 7.216), not survey data. The shoreline follows the

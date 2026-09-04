@@ -1,6 +1,21 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
-import { EXTENT, heightAt, slopeAt, shoreline, cliffFoot, fbm, smooth } from './terrain'
+import {
+  EXTENT,
+  BEACH,
+  heightAt,
+  modernHeightAt,
+  modernShore,
+  slopeAt,
+  shoreline,
+  cliffFoot,
+  fbm,
+  smooth,
+  SPERCHEIOS_XZ,
+  OLD_ROAD_XZ,
+  MOTORWAY_XZ,
+  MONUMENT,
+} from './terrain'
 import { anopaea } from './units'
 import type { Lighting } from './script'
 
@@ -24,16 +39,29 @@ const C = {
   rockDark: new THREE.Color(0x6e6357),
 }
 
-export function buildTerrain(): THREE.Mesh {
+const FIELD_COLORS = [0x8fa257, 0xa9a862, 0x7d9346, 0xb5a56a, 0x9aa86b, 0x86995a].map((c) => new THREE.Color(c))
+function hash2(ix: number, iy: number): number {
+  let h = (Math.imul(ix, 374761393) + Math.imul(iy, 668265263)) | 0
+  h = Math.imul(h ^ (h >>> 13), 1274126177)
+  h ^= h >>> 16
+  return (h >>> 0) / 4294967296
+}
+
+/**
+ * The ground. `modern` swaps the ancient gulf for today's silted plain; the
+ * mountain and the coastal strip are shared.
+ */
+export function buildTerrain(modern = false): THREE.Mesh {
+  const hAtXZ = modern ? modernHeightAt : heightAt
   const nx = 760
-  const nz = 400
+  const nz = 460
   const w = EXTENT.xMax - EXTENT.xMin
   // z rows are spent unevenly: most of them across the coastal strip, where the
-  // gates are a few metres wide, and the rest over the sea and the mountain
+  // gates are a few metres wide, and the rest over the gulf and the mountain
   const zRow = (iz: number): number => {
     const u = iz / nz
-    const seaEnd = 0.22
-    const stripEnd = 0.68
+    const seaEnd = 0.3
+    const stripEnd = 0.7
     const z0 = -700
     const z1 = 80
     if (u < seaEnd) return EXTENT.zMin + (u / seaEnd) * (z0 - EXTENT.zMin)
@@ -50,7 +78,7 @@ export function buildTerrain(): THREE.Mesh {
     for (let ix = 0; ix <= nx; ix++) {
       const x = EXTENT.xMin + (ix / nx) * w
       positions[p] = x
-      positions[p + 1] = heightAt(x, z)
+      positions[p + 1] = hAtXZ(x, z)
       positions[p + 2] = z
       p += 3
     }
@@ -65,7 +93,12 @@ export function buildTerrain(): THREE.Mesh {
       const x = EXTENT.xMin + (ix / nx) * w
       const y = positions[p + 1]
       const n = fbm(x * 0.004, z * 0.004, 3)
-      if (y < 0) {
+      const onPlain = modern && z < shoreline(x) + BEACH && z > modernShore(x) + BEACH
+      if (onPlain) {
+        // farmland: a patchwork of fields on the silt
+        const f = hash2(Math.floor((x + 100000) / 170), Math.floor((z + 100000) / 130))
+        col.copy(FIELD_COLORS[Math.floor(f * FIELD_COLORS.length)]).lerp(C.dry, 0.25 * n)
+      } else if (y < 0) {
         col.copy(C.seabed).lerp(C.seabedDeep, smooth(0, -45, y))
       } else if (y < 2.2) {
         col.copy(C.sand).lerp(C.grass, smooth(0.8, 2.2, y))
@@ -111,8 +144,104 @@ export function buildTerrain(): THREE.Mesh {
   geom.computeVertexNormals()
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0 })
   const mesh = new THREE.Mesh(geom, mat)
-  mesh.name = 'terrain'
+  mesh.name = modern ? 'terrain-today' : 'terrain-480bc'
   return mesh
+}
+
+/* ---------- ribbons and dashes on the ground ---------- */
+type Ground = (x: number, z: number) => number
+
+/** a flat strip following a polyline, draped on the ground */
+function ribbon(xz: [number, number][], width: number, color: number, ground: Ground, lift = 0.4): THREE.Mesh {
+  const pts = xz.map(([x, z]) => new THREE.Vector3(x, 0, z))
+  const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal', 0.5)
+  const n = Math.max(8, Math.round(curve.getLength() / 25))
+  const spaced = curve.getSpacedPoints(n)
+  const pos = new Float32Array((n + 1) * 2 * 3)
+  const idx: number[] = []
+  const dir = new THREE.Vector3()
+  for (let i = 0; i <= n; i++) {
+    const a = spaced[Math.max(0, i - 1)]
+    const b = spaced[Math.min(n, i + 1)]
+    dir.subVectors(b, a).normalize()
+    const px = -dir.z * width * 0.5
+    const pz = dir.x * width * 0.5
+    const c = spaced[i]
+    const y = Math.max(ground(c.x, c.z), 0) + lift
+    pos.set([c.x + px, y, c.z + pz, c.x - px, y, c.z - pz], i * 6)
+    if (i < n) {
+      const o = i * 2
+      idx.push(o, o + 2, o + 1, o + 1, o + 2, o + 3)
+    }
+  }
+  const geom = new THREE.BufferGeometry()
+  geom.setAttribute('position', new THREE.BufferAttribute(pos, 3))
+  geom.setIndex(idx)
+  geom.computeVertexNormals()
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.9, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 })
+  return new THREE.Mesh(geom, mat)
+}
+
+/** a dashed line along z = f(x), draped on the ground: the ghost of a coastline */
+function dashedAlongX(zOf: (x: number) => number, color: number, ground: Ground, lift: number): THREE.Mesh {
+  const segs: THREE.BufferGeometry[] = []
+  const dash = 70
+  const gap = 45
+  for (let x = EXTENT.xMin; x < EXTENT.xMax; x += dash + gap) {
+    const x1 = Math.min(EXTENT.xMax, x + dash)
+    const z0 = zOf(x)
+    const z1 = zOf(x1)
+    const cx = (x + x1) / 2
+    const cz = (z0 + z1) / 2
+    const len = Math.hypot(x1 - x, z1 - z0)
+    const y = Math.max(ground(cx, cz), 0) + lift
+    const g = new THREE.BoxGeometry(len, 1.2, 7)
+      .rotateY(-Math.atan2(z1 - z0, x1 - x))
+      .translate(cx, y, cz)
+    segs.push(g)
+  }
+  const geom = mergeGeometries(segs, false)!
+  const mat = new THREE.MeshStandardMaterial({
+    color,
+    emissive: color,
+    emissiveIntensity: 0.35,
+    roughness: 0.6,
+    polygonOffset: true,
+    polygonOffsetFactor: -3,
+  })
+  return new THREE.Mesh(geom, mat)
+}
+
+/** what the 480 BC view shows of today: where the coast is now, drawn over the water */
+export function buildModernCoastGhost(): THREE.Mesh {
+  const m = dashedAlongX(modernShore, 0xf4e6c8, () => 0, 1.0)
+  m.name = 'ghost-modern-coast'
+  return m
+}
+
+/** what the present-day view carries: the plain's features and the ghost of the ancient shore */
+export function buildModernFeatures(): THREE.Group {
+  const g = new THREE.Group()
+  g.name = 'today'
+  const ground = modernHeightAt
+  g.add(ribbon(SPERCHEIOS_XZ, 48, 0x3b7591, ground, 0.25))
+  g.add(ribbon(OLD_ROAD_XZ, 9, 0x5c5f63, ground, 0.5))
+  g.add(ribbon(MOTORWAY_XZ, 24, 0x4b4f55, ground, 0.6))
+  // the Leonidas monument: a plinth, a stele and a figure, roughly to scale
+  const stone = new THREE.MeshStandardMaterial({ color: 0xe6e0d2, roughness: 0.7 })
+  const [mx, mz] = MONUMENT
+  const my = ground(mx, mz)
+  const plinth = new THREE.Mesh(new THREE.BoxGeometry(22, 2, 9), stone)
+  plinth.position.set(mx, my + 1, mz)
+  const stele = new THREE.Mesh(new THREE.BoxGeometry(14, 5, 3), stone)
+  stele.position.set(mx, my + 4.5, mz + 2.5)
+  const figure = new THREE.Mesh(new THREE.BoxGeometry(2.2, 6, 2.2), new THREE.MeshStandardMaterial({ color: 0x6b5a3e, roughness: 0.5, metalness: 0.4 }))
+  figure.position.set(mx, my + 10, mz + 2.5)
+  g.add(plinth, stele, figure)
+  const ghost = dashedAlongX(shoreline, 0x6fb7d6, ground, 0.7)
+  ghost.name = 'ghost-ancient-shore'
+  g.add(ghost)
+  return g
 }
 
 /* ---------- sea ---------- */
