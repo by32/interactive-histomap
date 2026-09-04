@@ -195,7 +195,7 @@ function dashedAlongX(zOf: (x: number) => number, color: number, ground: Ground,
     const cz = (z0 + z1) / 2
     const len = Math.hypot(x1 - x, z1 - z0)
     const y = Math.max(ground(cx, cz), 0) + lift
-    const g = new THREE.BoxGeometry(len, 1.2, width)
+    const g = new THREE.BoxGeometry(len, 0.4, width)
       .rotateY(-Math.atan2(z1 - z0, x1 - x))
       .translate(cx, y, cz)
     segs.push(g)
@@ -214,7 +214,7 @@ function dashedAlongX(zOf: (x: number) => number, color: number, ground: Ground,
 
 /** what the 480 BC view shows of today: where the coast is now, drawn over the water */
 export function buildModernCoastGhost(): THREE.Mesh {
-  const m = dashedAlongX(modernShore, 0xf4e6c8, () => 0, 1.0, 14)
+  const m = dashedAlongX(modernShore, 0xf4e6c8, () => 0, 0.8, 9)
   m.name = 'ghost-modern-coast'
   return m
 }
@@ -238,7 +238,7 @@ export function buildModernFeatures(): THREE.Group {
   const figure = new THREE.Mesh(new THREE.BoxGeometry(2.2, 6, 2.2), new THREE.MeshStandardMaterial({ color: 0x6b5a3e, roughness: 0.5, metalness: 0.4 }))
   figure.position.set(mx, my + 10, mz + 2.5)
   g.add(plinth, stele, figure)
-  const ghost = dashedAlongX(shoreline, 0x2f8fc9, ground, 0.7, 14)
+  const ghost = dashedAlongX(shoreline, 0x2f8fc9, ground, 0.5, 9)
   ghost.name = 'ghost-ancient-shore'
   g.add(ghost)
   return g
