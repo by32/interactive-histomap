@@ -34,7 +34,7 @@ export const GROUPS: GroupDef[] = [
   { id: 'phocians', label: 'Phocians on the mountain — 1,000', side: 'greek', color: 0x5f93a6, count: 200 },
   {
     id: 'host',
-    label: 'Persian host — 30,000 of Xerxes’ 70,000+ shown',
+    label: 'Persian host — schematic 30,000 shown',
     side: 'persian',
     color: 0xb9752f,
     count: 6000,

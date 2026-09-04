@@ -18,6 +18,7 @@ import {
 } from './terrain'
 import { anopaea } from './units'
 import type { Lighting } from './script'
+import { limestoneMaterial, softenPoints } from './atmosphere'
 
 const mulberry = (seed: number) => () => {
   seed = (seed + 0x6d2b79f5) | 0
@@ -31,11 +32,11 @@ const C = {
   seabed: new THREE.Color(0x7d8f74),
   seabedDeep: new THREE.Color(0x3d5a5c),
   sand: new THREE.Color(0xd9c89b),
-  grass: new THREE.Color(0x8b9650),
-  dry: new THREE.Color(0xb7a96a),
-  scrub: new THREE.Color(0x6f7c47),
-  rock: new THREE.Color(0x8f8375),
-  rockPale: new THREE.Color(0xaaa294),
+  grass: new THREE.Color(0x707856),
+  dry: new THREE.Color(0x9b9772),
+  scrub: new THREE.Color(0x505f42),
+  rock: new THREE.Color(0x9f9c8f),
+  rockPale: new THREE.Color(0xc1bcaa),
   rockDark: new THREE.Color(0x6e6357),
 }
 
@@ -142,8 +143,9 @@ export function buildTerrain(modern = false): THREE.Mesh {
   geom.setAttribute('color', new THREE.BufferAttribute(colors, 3))
   geom.setIndex(new THREE.BufferAttribute(index, 1))
   geom.computeVertexNormals()
-  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0 })
+  const mat = limestoneMaterial()
   const mesh = new THREE.Mesh(geom, mat)
+  mesh.castShadow = mesh.receiveShadow = true
   mesh.name = modern ? 'terrain-today' : 'terrain-480bc'
   return mesh
 }
@@ -263,25 +265,33 @@ export function buildSea(): THREE.Mesh {
 /* ---------- sky ---------- */
 export function buildSky(): {
   mesh: THREE.Mesh
-  uniforms: { top: { value: THREE.Color }; bottom: { value: THREE.Color }; fog: { value: THREE.Color } }
+  uniforms: { top: { value: THREE.Color }; bottom: { value: THREE.Color }; fog: { value: THREE.Color }; sun: { value: THREE.Vector3 }; glow: { value: number } }
 } {
   const uniforms = {
     top: { value: new THREE.Color(0x4a7fc4) },
     bottom: { value: new THREE.Color(0xcfe0f0) },
     fog: { value: new THREE.Color(0xcdd9e4) },
+    sun: { value: new THREE.Vector3(.5,.3,.2).normalize() },
+    glow: { value: 1 },
   }
   const mat = new THREE.ShaderMaterial({
     uniforms,
     side: THREE.BackSide,
     depthWrite: false,
     vertexShader: `varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position,1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
-    fragmentShader: `uniform vec3 top; uniform vec3 bottom; uniform vec3 fog; varying vec3 vW;
+    fragmentShader: `uniform vec3 top; uniform vec3 bottom; uniform vec3 fog; uniform vec3 sun; uniform float glow; varying vec3 vW;
       void main(){
         float h = normalize(vW).y;
         float t = pow(max(h + 0.05, 0.0), 0.55);
         vec3 c = mix(bottom, top, clamp(t, 0.0, 1.0));
         // dissolve into the fog at the horizon so sea and sky meet without a seam
         c = mix(fog, c, smoothstep(0.0, 0.14, h));
+        vec3 ray = normalize(vW);
+        float lightDot = max(0.0,dot(ray,sun));
+        c += vec3(1.0,.62,.28)*pow(lightDot,18.0)*.22*glow;
+        c += vec3(1.0,.88,.63)*smoothstep(.9994,.9998,lightDot)*1.8*glow;
+        float cloud = sin(ray.x*21.0+sin(ray.z*17.0))*sin(ray.z*29.0+ray.x*12.0);
+        c = mix(c, bottom*.9, smoothstep(.35,.82,cloud)*smoothstep(.04,.21,h)*(1.0-smoothstep(.3,.7,h))*.16);
         gl_FragColor = vec4(c, 1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -295,7 +305,7 @@ export function buildSky(): {
 /* ---------- forest on the mountain ---------- */
 export function buildForest(): THREE.InstancedMesh {
   const rnd = mulberry(4242)
-  const canopy = new THREE.IcosahedronGeometry(4.2, 1).scale(1, 0.8, 1).translate(0, 6.2, 0)
+  const canopy = new THREE.IcosahedronGeometry(4.2, 1).scale(1, 0.72, 1).translate(0, 7.2, 0)
   // the icosahedron is non-indexed; the trunk must match for the merge
   const trunk = new THREE.CylinderGeometry(0.6, 0.9, 4, 5).translate(0, 2, 0).toNonIndexed()
   const paintG = (g: THREE.BufferGeometry, c: number) => {
@@ -306,7 +316,7 @@ export function buildForest(): THREE.InstancedMesh {
     g.setAttribute('color', new THREE.BufferAttribute(arr, 3))
     return g
   }
-  const geom = mergeGeometries([paintG(canopy, 0x4a6a32), paintG(trunk, 0x5a3f28)], false)!
+  const geom = mergeGeometries([paintG(canopy, 0x35482c), paintG(canopy.clone().scale(.75,.8,.7).translate(2.5,-.5,1.4), 0x435339), paintG(canopy.clone().scale(.6,.65,.8).translate(-2,-.4,-1.6), 0x506046), paintG(trunk, 0x5a4e37)], false)!
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 })
   const N = 4200
   const mesh = new THREE.InstancedMesh(geom, mat, N)
@@ -335,6 +345,7 @@ export function buildForest(): THREE.InstancedMesh {
   }
   mesh.count = placed
   mesh.instanceMatrix.needsUpdate = true
+  mesh.castShadow = mesh.receiveShadow = true
   mesh.name = 'forest'
   return mesh
 }
@@ -394,6 +405,7 @@ export function buildCamps(): Camp {
     opacity: 0,
     depthWrite: false,
   })
+  softenPoints(fm)
   const fires = new THREE.Points(fg, fm)
   fires.name = 'fires'
   return { tents: mesh, fires }
@@ -417,13 +429,14 @@ export function buildWall(): THREE.Mesh {
   const geom = mergeGeometries(segs, false)!
   const mat = new THREE.MeshStandardMaterial({ color: 0xb2a494, roughness: 1 })
   const mesh = new THREE.Mesh(geom, mat)
+  mesh.castShadow = mesh.receiveShadow = true
   mesh.name = 'wall'
   return mesh
 }
 
 /* ---------- the Anopaea path ---------- */
 export function buildPath(): THREE.Mesh {
-  const geom = new THREE.TubeGeometry(anopaea.curve, 400, 3.2, 5, false)
+  const geom = new THREE.TubeGeometry(anopaea.curve, 650, 1.8, 5, false)
   // sit the tube on the ground
   const pos = geom.attributes.position as THREE.BufferAttribute
   for (let i = 0; i < pos.count; i++) {
@@ -434,7 +447,7 @@ export function buildPath(): THREE.Mesh {
   pos.needsUpdate = true
   const mat = new THREE.MeshStandardMaterial({
     color: 0xd8b070,
-    emissive: 0xb07830,
+    emissive: 0x5b462b,
     emissiveIntensity: 0.25,
     roughness: 0.9,
     transparent: true,
@@ -515,10 +528,10 @@ const preset = (
 
 // the sun sits to the south (+z); dawn in the east (+x), dusk in the west (−x)
 export const LIGHTS: Record<Lighting, LightPreset> = {
-  day: preset([0.25, 0.92, 0.3], 0xfff1dc, 2.6, 0xbcd6ee, 0x6b6046, 1.1, 0x3f78c2, 0xd4e3f2, 0xcdd9e4, 1800, 10500, 0),
+  day: preset([.55,.62,.3], 0xffe2ba, 3.1, 0x9ab7bb, 0x595941, 1.05, 0x396b7f, 0xd8d9c1, 0xaabbb6, 550, 8200, 0),
   dawn: preset([0.9, 0.2, 0.3], 0xffb173, 1.9, 0xf3c9a4, 0x3d3830, 0.8, 0x3a5c93, 0xffbd8c, 0xe6b48f, 1500, 9000, 0.35),
   dusk: preset([-0.9, 0.14, 0.28], 0xff8d4d, 1.6, 0xe9a888, 0x36302a, 0.75, 0x2f3a68, 0xff9f6a, 0xd99a7c, 1400, 9000, 0.6),
-  night: preset([-0.3, 0.7, 0.5], 0x8fa4d8, 0.9, 0x2a3860, 0x0e1018, 0.9, 0x070c1a, 0x1e2a4c, 0x161e34, 1000, 8000, 1),
+  night: preset([-.3,.7,.5], 0x9cb9dc, 1.15, 0x728aab, 0x20252e, .95, 0x071321, 0x263a50, 0x263747, 180, 6200, 1),
 }
 
 export function lerpPreset(a: LightPreset, b: LightPreset, t: number, out: LightPreset) {

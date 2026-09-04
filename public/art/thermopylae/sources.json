@@ -1,0 +1,106 @@
+{
+  "assets": [
+    {
+      "id": "corinthian-helmet",
+      "width": 3288,
+      "height": 4000,
+      "caption": "Greek bronze helmet of Corinthian type, early 5th century BC. The Metropolitan Museum of Art, 2016.235a–c. Open Access, CC0.",
+      "catalog_title": "Helmet of the Corinthian Type and Pair of Greaves",
+      "object_date": "early 5th century BCE",
+      "museum": "The Metropolitan Museum of Art",
+      "accession": "2016.235a–c",
+      "source_url": "https://www.metmuseum.org/art/collection/search/703054",
+      "image_url": "https://images.metmuseum.org/CRDImages/aa/original/DP-13164-001.jpg",
+      "license": "CC0 (Met Open Access; object API isPublicDomain=true)",
+      "license_url": "https://www.metmuseum.org/hubs/open-access",
+      "credit": "The Metropolitan Museum of Art",
+      "notes": "Primary image shows the helmet alone despite the combined catalog title. Museum says the objects are said to have been discovered in Sicily; do not call this a Spartan or Thermopylae find. The helmet has distinctive elliptical eye openings and ear cutouts. Archaeological green corrosion is not evidence for a green-painted battle helmet.",
+      "web": {
+        "image_url": "https://images.metmuseum.org/CRDImages/aa/web-large/DP-13164-001.jpg",
+        "width": 513,
+        "height": 624,
+        "bytes": 71257,
+        "provenance": "Institution-provided primaryImageSmall",
+        "downloaded_without_modification": true,
+        "license": "CC0 (Met Open Access; object API isPublicDomain=true)"
+      },
+      "file": "corinthian-helmet.jpg"
+    },
+    {
+      "id": "greek-persian-amphora",
+      "width": 3000,
+      "height": 4000,
+      "caption": "Greek warrior and Persian archer on an Attic red-figure amphora, ca. 480–470 BC. The Metropolitan Museum of Art, 06.1021.117. Open Access, CC0.",
+      "catalog_title": "Terracotta Nolan amphora (jar)",
+      "object_date": "ca. 480–470 BCE",
+      "museum": "The Metropolitan Museum of Art",
+      "accession": "06.1021.117",
+      "source_url": "https://www.metmuseum.org/art/collection/search/247283",
+      "image_url": "https://images.metmuseum.org/CRDImages/gr/original/DP229735.jpg",
+      "license": "CC0 (Met Open Access; object API isPublicDomain=true)",
+      "license_url": "https://www.metmuseum.org/hubs/open-access",
+      "credit": "The Metropolitan Museum of Art, Rogers Fund, 1906",
+      "notes": "The museum identifies the obverse as warriors fighting a Persian archer and explains its relationship to Greek victory imagery after 480 BC. It does not identify this image as Thermopylae. Avoid the image-search generated summary that names Salamis more specifically than the catalog. Visually useful for a Greek round shield, spear, helmet and body armor versus a Persian figure with patterned sleeves, trousers and soft cap.",
+      "web": {
+        "image_url": "https://images.metmuseum.org/CRDImages/gr/web-large/DP229735.jpg",
+        "width": 468,
+        "height": 624,
+        "bytes": 52369,
+        "provenance": "Institution-provided primaryImageSmall",
+        "downloaded_without_modification": true,
+        "license": "CC0 (Met Open Access; object API isPublicDomain=true)"
+      },
+      "file": "greek-persian-amphora.jpg"
+    },
+    {
+      "id": "persian-archers-frieze",
+      "width": 2540,
+      "height": 4098,
+      "caption": "Archer frieze from Darius I’s palace at Susa, 522–486 BC. Louvre, AOD 488. Photograph by Jebulon (2010), public domain.",
+      "catalog_title": "Frise des archers",
+      "object_date": "522–486 BCE (reign of Darius I); Commons gives ca. 510 BCE",
+      "museum": "Musée du Louvre",
+      "accession": "AOD 488",
+      "source_url": "https://collections.louvre.fr/en/ark:/53355/cl010170854",
+      "image_source_url": "https://commons.wikimedia.org/wiki/File:Archers_frieze_Darius_1st_Palace_Suse_Louvre_AOD_488_a.jpg",
+      "image_url": "https://upload.wikimedia.org/wikipedia/commons/6/62/Archers_frieze_Darius_1st_Palace_Suse_Louvre_AOD_488_a.jpg",
+      "license": "Photographer Jebulon released photograph into the public domain worldwide (PD-self); ancient artwork also public domain.",
+      "license_url": "https://commons.wikimedia.org/wiki/File:Archers_frieze_Darius_1st_Palace_Suse_Louvre_AOD_488_a.jpg#Summary",
+      "credit": "Jebulon / Wikimedia Commons, public domain; object: Musée du Louvre, AOD 488",
+      "notes": "Glazed siliceous brick architectural relief from a royal palace. Shows Persian archer figures, but identification specifically as Immortals and transfer of ceremonial dress to battlefield uniforms should not be presented as certain. Use as Achaemenid visual culture reference. The Louvre catalog provides the securely stated reign-date range.",
+      "web": {
+        "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/Archers_frieze_Darius_1st_Palace_Suse_Louvre_AOD_488_a.jpg/960px-Archers_frieze_Darius_1st_Palace_Suse_Louvre_AOD_488_a.jpg",
+        "width": 960,
+        "height": 1549,
+        "bytes": 789470,
+        "provenance": "Wikimedia Commons provided 960px thumbnail, linked from image file page",
+        "downloaded_without_modification": true,
+        "license": "Photographer Jebulon released photograph into the public domain worldwide (PD-self); ancient artwork also public domain."
+      },
+      "file": "persian-archers-frieze.jpg"
+    }
+  ],
+  "reconstruction_notes": {
+    "greek_equipment": {
+      "source_url": "https://www.metmuseum.org/art/collection/search/250921",
+      "summary": "Met describes a typical hoplite equipment set as Corinthian helmet, cuirass, greaves, round shield, thrusting spear and short sword. Treat this as a visual vocabulary with variation, not proof of a single uniform worn by every Greek defender."
+    },
+    "persian_equipment": {
+      "source_url": "https://lexundria.com/hdt/7.61/mcly",
+      "additional_source_url": "https://www.namuseum.gr/en/monthly_artefact/barbarian-clothing-or-the-garments-of-the-foreigners/",
+      "summary": "Herodotus 7.61 describes ethnic Persian troops with soft felt caps, colored sleeved garments, trousers, wicker shields, quivers, short spears, bows and daggers; the passage also mentions iron scales but its exact wording is textually difficult (Macaulay note 56). Label this as Herodotus’ account, and do not flatten the multiethnic imperial army into one identical costume. The National Archaeological Museum independently cites this passage for sleeves, trousers and loose caps; its displayed sculptures are later and were not selected as 480 BC assets."
+    },
+    "reconstruction_limits": [
+      "None of the chosen objects can be labeled as recovered from Thermopylae or as Leonidas’ personal equipment.",
+      "The Attic vase is contemporary combat imagery; no evidence here identifies a specific battle.",
+      "Use a variety of simple shield fields or individually evidenced emblems. These sources do not establish universal lambda shield emblems at Thermopylae.",
+      "Do not model the Persian royal relief’s long formal robes as a proved uniform for all field infantry.",
+      "Keep explanatory labels clear about object photographs versus reconstructed battle scenes."
+    ]
+  },
+  "web_delivery": {
+    "total_bytes": 913096,
+    "image_count": 3,
+    "note": "Official smaller image variants downloaded without resizing, recompression or other local image edits."
+  }
+}

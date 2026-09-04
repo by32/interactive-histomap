@@ -126,3 +126,12 @@ Settings → Pages → Source: *GitHub Actions*).
   derivative of that dataset.
 - This project (code, curation tables, generated data): **GPL-3.0** — see [LICENSE](LICENSE).
 - Inspired by *The Histomap*, John B. Sparks, Rand McNally, 1931.
+
+
+### Thermopylae visual reconstruction
+
+The Thermopylae page now opens on a five-shot night-march sequence. Chapter cuts compress the overnight journey while each close tracking shot keeps the troops moving at walking speed. The original eleven-step walkthrough and ancient/modern coast comparison remain available.
+
+The landscape uses world-space limestone detail, moving water and shore foam, soft shadows, a sky with atmospheric sunlight, and night-time torch lighting. Near the camera, detailed Greek and Persian models replace distant figures; the rig animates legs and equipment. On devices without WebGL, an animated shaded-relief atlas preserves the story, playback controls and evidence gallery.
+
+The **Art & evidence** gallery contains institution-supplied photographs of an early-fifth-century Corinthian helmet, an Attic Greek/Persian combat vase (ca. 480–470 BC), and the Susa archer frieze (522–486 BC). Museum records, original image URLs and reuse details are in `public/art/thermopylae/sources.json`. Met images are CC0; the Susa photograph is public domain. The objects inform the visual reconstruction and are not claimed as finds from Thermopylae. Formation colours, figure scale and the schematic geography are explained on the page.
