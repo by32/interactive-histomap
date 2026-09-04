@@ -20,6 +20,8 @@ interface HistoricalEvent {
   e?: string
   k?: string
   c?: [number, number]
+  /** page of a 3D walkthrough, relative to the site root */
+  w?: string
 }
 const BATTLES = (events as HistoricalEvent[]).filter((ev) => ev.k === 'battle' && ev.c)
 
@@ -323,7 +325,7 @@ export default function MapView() {
       map.on('mousemove', 'battles-icon', (e: MapLayerMouseEvent) => {
         const p = e.features?.[0]?.properties as HistoricalEvent | undefined
         if (p) {
-          useStore.getState().setHoveredEvent({ y: p.y, t: p.t, k: 'battle' })
+          useStore.getState().setHoveredEvent({ y: p.y, t: p.t, k: 'battle', w: p.w })
           map.getCanvas().style.cursor = 'pointer'
         }
       })
@@ -362,6 +364,8 @@ export default function MapView() {
         const battle = battleHits[0]?.properties as HistoricalEvent | undefined
         if (battle) {
           if (battle.e) useStore.getState().setSelected(battle.e)
+          // a battle with a walkthrough opens it alongside
+          if (battle.w) window.open(`${import.meta.env.BASE_URL}${battle.w}`, '_blank', 'noreferrer')
           // no hover on touch devices: show the note briefly on tap
           if (window.matchMedia('(hover: none)').matches) {
             useStore.getState().setHoveredEvent({ y: battle.y, t: battle.t, k: 'battle' })

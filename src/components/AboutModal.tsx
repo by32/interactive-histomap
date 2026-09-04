@@ -104,7 +104,9 @@ export default function AboutModal() {
             The event notes along the ribbon, the battle markers, and the historical-city
             dots are curated: conventional dates and traditional sites from common reference
             works, with the full lists and policy in the repository. Each battle appears on
-            the map at the snapshot nearest its year.
+            the map at the snapshot nearest its year. Thermopylae (480 BC) also opens a
+            narrated 3D walkthrough of the pass — a schematic model, with its own caveats
+            in its legend.
           </li>
           <li>
             Treat all of it as a visual aid for the shape of history, not a citable reference

@@ -1,0 +1,344 @@
+import * as THREE from 'three'
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import './style.css'
+import { heightAt } from './terrain'
+import { GROUPS, STAGES, LABELS, FIGURE_SCALE, type Stage } from './script'
+import { Armies } from './units'
+import {
+  buildTerrain,
+  buildSea,
+  buildSky,
+  buildForest,
+  buildCamps,
+  buildWall,
+  buildPath,
+  buildSprings,
+  LIGHTS,
+  lerpPreset,
+  clonePreset,
+  type LightPreset,
+} from './scene'
+
+const $ = <T extends HTMLElement>(sel: string) => document.querySelector<T>(sel)!
+
+/* ---------- renderer & scene ---------- */
+const canvas = $<HTMLCanvasElement>('#scene')
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' })
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+renderer.outputColorSpace = THREE.SRGBColorSpace
+renderer.toneMapping = THREE.ACESFilmicToneMapping
+renderer.toneMappingExposure = 1.05
+
+const scene = new THREE.Scene()
+scene.fog = new THREE.Fog(0xcdd9e4, 1800, 10500)
+
+const camera = new THREE.PerspectiveCamera(50, 1, 2, 50000)
+
+const controls = new OrbitControls(camera, canvas)
+controls.enableDamping = true
+controls.dampingFactor = 0.08
+controls.minDistance = 12
+controls.maxDistance = 9000
+controls.maxPolarAngle = Math.PI * 0.49
+controls.screenSpacePanning = false
+
+const sun = new THREE.DirectionalLight(0xffffff, 2.4)
+// a cool fill from over the gulf so north-facing cliffs are not pitch black
+const fill = new THREE.DirectionalLight(0xcfdcec, 0.55)
+fill.position.set(-1500, 3000, -6000)
+const hemi = new THREE.HemisphereLight(0xbcd6ee, 0x6b6046, 0.75)
+const ambient = new THREE.AmbientLight(0xffffff, 0.3)
+scene.add(sun, fill, hemi, ambient)
+
+const sky = buildSky()
+scene.add(sky.mesh)
+scene.add(buildTerrain())
+scene.add(buildSea())
+scene.add(buildForest())
+const camps = buildCamps()
+scene.add(camps.tents, camps.fires)
+scene.add(buildWall())
+scene.add(buildSprings())
+const path = buildPath()
+scene.add(path)
+const armies = new Armies()
+scene.add(armies.root)
+
+/* ---------- lighting transitions ---------- */
+let lightFrom: LightPreset = clonePreset(LIGHTS.day)
+let lightTo: LightPreset = LIGHTS.day
+let lightK = 1
+const lightNow: LightPreset = clonePreset(LIGHTS.day)
+const LIGHT_S = 2.4
+
+function applyLight(p: LightPreset) {
+  sun.position.copy(p.sunDir).multiplyScalar(5000)
+  sun.color.copy(p.sunColor)
+  sun.intensity = p.sunIntensity
+  fill.intensity = 0.22 * p.sunIntensity
+  hemi.color.copy(p.hemiSky)
+  hemi.groundColor.copy(p.hemiGround)
+  hemi.intensity = p.hemiIntensity
+  ambient.intensity = 0.12 * p.sunIntensity
+  sky.uniforms.top.value.copy(p.skyTop)
+  sky.uniforms.bottom.value.copy(p.skyBottom)
+  sky.uniforms.fog.value.copy(p.fog)
+  const fog = scene.fog as THREE.Fog
+  fog.color.copy(p.fog)
+  fog.near = p.fogNear
+  fog.far = p.fogFar
+  ;(camps.fires.material as THREE.PointsMaterial).opacity = p.fires
+  camps.fires.visible = p.fires > 0.01
+  armies.setTorchGlow(p.fires)
+}
+
+/* ---------- camera tour ---------- */
+const camFrom = { pos: new THREE.Vector3(), target: new THREE.Vector3() }
+const camTo = { pos: new THREE.Vector3(), target: new THREE.Vector3() }
+let camK = 1
+const CAM_S = 3.2
+const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
+
+const resolve = ([x, z, up]: [number, number, number], out: THREE.Vector3) =>
+  out.set(x, heightAt(x, z) + up, z)
+
+function flyTo(stage: Stage) {
+  camFrom.pos.copy(camera.position)
+  camFrom.target.copy(controls.target)
+  resolve(stage.camera.pos, camTo.pos)
+  resolve(stage.camera.target, camTo.target)
+  camK = 0
+}
+
+// any pointer interaction hands the camera back to the viewer
+canvas.addEventListener('pointerdown', () => {
+  camK = 1
+})
+canvas.addEventListener('wheel', () => {
+  camK = 1
+}, { passive: true })
+
+/* ---------- labels ---------- */
+const labelLayer = $('#labels')
+const labelEls = LABELS.map((l) => {
+  const el = document.createElement('div')
+  el.className = 'label' + (l.minor ? ' minor' : '')
+  el.textContent = l.text
+  labelLayer.appendChild(el)
+  return { el, pos: new THREE.Vector3(l.x, heightAt(l.x, l.z) + (l.up ?? 6), l.z) }
+})
+let labelsOn = true
+
+const projected = new THREE.Vector3()
+const march = new THREE.Vector3()
+function occluded(p: THREE.Vector3): boolean {
+  // march from the camera toward the label; hidden if the ground is above the ray
+  const steps = 28
+  for (let i = 1; i < steps; i++) {
+    const t = i / steps
+    march.lerpVectors(camera.position, p, t)
+    if (heightAt(march.x, march.z) > march.y + 4) return true
+  }
+  return false
+}
+
+function updateLabels() {
+  const w = canvas.clientWidth
+  const h = canvas.clientHeight
+  for (const { el, pos } of labelEls) {
+    if (!labelsOn) {
+      el.style.display = 'none'
+      continue
+    }
+    projected.copy(pos).project(camera)
+    const dist = camera.position.distanceTo(pos)
+    const inFront = projected.z < 1 && projected.z > -1
+    const onScreen = projected.x > -1.05 && projected.x < 1.05 && projected.y > -1.05 && projected.y < 1.05
+    const show = inFront && onScreen && dist < 9000 && !occluded(pos)
+    el.style.display = show ? 'block' : 'none'
+    if (!show) continue
+    el.style.transform = `translate(-50%, -100%) translate(${((projected.x + 1) / 2) * w}px, ${((1 - projected.y) / 2) * h}px)`
+    el.style.opacity = String(Math.max(0.35, 1 - dist / 12000))
+  }
+}
+
+/* ---------- stage UI ---------- */
+let current = -1
+let autoplay = false
+let autoTimer = 0
+const AUTO_S = 16
+
+const kickerEl = $('#kicker')
+const titleEl = $('#stage-title')
+const textEl = $('#stage-text')
+const counterEl = $('#counter')
+const dotsEl = $('#dots')
+const prevBtn = $<HTMLButtonElement>('#prev')
+const nextBtn = $<HTMLButtonElement>('#next')
+const autoBtn = $<HTMLButtonElement>('#auto')
+
+STAGES.forEach((s, i) => {
+  const b = document.createElement('button')
+  b.className = 'dot'
+  b.title = s.title
+  b.setAttribute('aria-label', `Step ${i + 1}: ${s.title}`)
+  b.addEventListener('click', () => go(i))
+  dotsEl.appendChild(b)
+})
+
+function go(i: number, fly = true) {
+  const idx = Math.max(0, Math.min(STAGES.length - 1, i))
+  if (idx === current) return
+  current = idx
+  const stage = STAGES[idx]
+  kickerEl.textContent = stage.kicker
+  titleEl.textContent = stage.title
+  textEl.innerHTML = stage.text
+  counterEl.textContent = `${idx + 1} / ${STAGES.length}`
+  Array.from(dotsEl.children).forEach((d, k) => d.classList.toggle('on', k === idx))
+  prevBtn.disabled = idx === 0
+  nextBtn.disabled = idx === STAGES.length - 1
+  armies.setStage(stage.units)
+  lightFrom = clonePreset(lightNow)
+  lightTo = LIGHTS[stage.light]
+  lightK = 0
+  const pm = path.material as THREE.MeshStandardMaterial
+  pm.emissiveIntensity = stage.path ? 1.1 : 0.25
+  pm.opacity = stage.path ? 1 : 0.8
+  if (fly) flyTo(stage)
+  autoTimer = 0
+  document.body.dataset.stage = stage.id
+  history.replaceState(null, '', `#s=${idx + 1}`)
+}
+
+prevBtn.addEventListener('click', () => go(current - 1))
+nextBtn.addEventListener('click', () => go(current + 1))
+autoBtn.addEventListener('click', () => {
+  autoplay = !autoplay
+  autoBtn.classList.toggle('on', autoplay)
+  autoBtn.textContent = autoplay ? '⏸ auto' : '▶ auto'
+  autoTimer = 0
+})
+$('#refly').addEventListener('click', () => flyTo(STAGES[current]))
+$('#labels-toggle').addEventListener('click', (e) => {
+  labelsOn = !labelsOn
+  ;(e.currentTarget as HTMLElement).classList.toggle('on', labelsOn)
+})
+$('#legend-toggle').addEventListener('click', (e) => {
+  const open = $('#legend').classList.toggle('open')
+  ;(e.currentTarget as HTMLElement).classList.toggle('on', open)
+})
+$('#panel-toggle').addEventListener('click', () => {
+  $('#panel').classList.toggle('collapsed')
+})
+
+window.addEventListener('keydown', (e) => {
+  if ((e.target as HTMLElement).tagName === 'INPUT') return
+  if (e.key === 'ArrowRight' || e.key === 'PageDown') go(current + 1)
+  else if (e.key === 'ArrowLeft' || e.key === 'PageUp') go(current - 1)
+  else if (e.key === 'Home') go(0)
+  else if (e.key === 'End') go(STAGES.length - 1)
+  else if (e.key === 'r') flyTo(STAGES[current])
+  else if (e.key === 'l') $('#labels-toggle').click()
+  else if (e.key === ' ') {
+    e.preventDefault()
+    autoBtn.click()
+  }
+})
+
+// editing #s=… in the address bar jumps to that step
+window.addEventListener('hashchange', () => {
+  const n = Number(new URLSearchParams(location.hash.slice(1)).get('s'))
+  if (Number.isFinite(n) && n >= 1) go(n - 1)
+})
+
+/* ---------- legend ---------- */
+const legendList = $('#legend-list')
+for (const g of GROUPS) {
+  const li = document.createElement('li')
+  const sw = document.createElement('i')
+  sw.style.background = '#' + g.color.toString(16).padStart(6, '0')
+  li.append(sw, g.label)
+  li.className = g.side
+  legendList.appendChild(li)
+}
+$('#figure-scale').textContent = String(FIGURE_SCALE)
+
+/* ---------- compass ---------- */
+const needle = $('#needle')
+
+/* ---------- loop ---------- */
+function resize() {
+  const w = canvas.clientWidth
+  const h = canvas.clientHeight
+  if (canvas.width !== Math.floor(w * renderer.getPixelRatio()) || canvas.height !== Math.floor(h * renderer.getPixelRatio())) {
+    renderer.setSize(w, h, false)
+    camera.aspect = w / h
+    camera.updateProjectionMatrix()
+  }
+}
+
+const timer = new THREE.Timer()
+const camDir = new THREE.Vector3()
+function frame() {
+  timer.update()
+  const dt = Math.min(0.1, timer.getDelta())
+  resize()
+
+  if (camK < 1) {
+    camK = Math.min(1, camK + dt / CAM_S)
+    const k = easeInOut(camK)
+    camera.position.lerpVectors(camFrom.pos, camTo.pos, k)
+    controls.target.lerpVectors(camFrom.target, camTo.target, k)
+  }
+  // never let the eye sink under the ground
+  const floor = heightAt(camera.position.x, camera.position.z) + 3
+  if (camera.position.y < floor) camera.position.y = floor
+  controls.update()
+
+  if (lightK < 1) {
+    lightK = Math.min(1, lightK + dt / LIGHT_S)
+    lerpPreset(lightFrom, lightTo, easeInOut(lightK), lightNow)
+    applyLight(lightNow)
+  }
+
+  armies.update(dt)
+
+  if (autoplay) {
+    autoTimer += dt
+    if (autoTimer > AUTO_S) {
+      if (current < STAGES.length - 1) go(current + 1)
+      else autoBtn.click()
+    }
+  }
+
+  camera.getWorldDirection(camDir)
+  // north is −z: rotate the needle so it points toward −z on screen
+  const az = Math.atan2(camDir.x, -camDir.z)
+  needle.style.transform = `rotate(${(-az * 180) / Math.PI}deg)`
+
+  updateLabels()
+  // flag quiet frames for tests and screenshots
+  const settled = camK >= 1 && lightK >= 1 && armies.settled
+  if (document.body.dataset.settled !== String(settled)) document.body.dataset.settled = String(settled)
+  renderer.render(scene, camera)
+  requestAnimationFrame(frame)
+}
+
+/* ---------- boot ---------- */
+applyLight(lightNow)
+const params = new URLSearchParams(location.hash.slice(1))
+const fromHash = Number(params.get('s'))
+const start = Number.isFinite(fromHash) && fromHash >= 1 ? fromHash - 1 : 0
+go(start, false)
+// snap the camera to the opening view, then let the loop take over
+resolve(STAGES[start].camera.pos, camera.position)
+resolve(STAGES[start].camera.target, controls.target)
+// #cam=x,z,up,tx,tz,tup overrides the viewpoint (handy when tuning a step)
+const cam = params.get('cam')?.split(',').map(Number)
+if (cam && cam.length === 6 && cam.every(Number.isFinite)) {
+  resolve([cam[0], cam[1], cam[2]], camera.position)
+  resolve([cam[3], cam[4], cam[5]], controls.target)
+}
+document.body.classList.add('ready')
+frame()

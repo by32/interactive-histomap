@@ -41,6 +41,15 @@ function maplibreWorkerAssets(): Plugin {
 export default defineConfig({
   base: '/interactive-histomap/',
   plugins: [react(), maplibreWorkerAssets()],
-  // MapLibre is ~1 MB minified and needed on first paint; splitting it buys nothing
-  build: { chunkSizeWarningLimit: 1400 },
+  build: {
+    // MapLibre is ~1 MB minified and needed on first paint; splitting it buys nothing
+    chunkSizeWarningLimit: 1400,
+    // two pages: the histomap, and the Thermopylae 3D walkthrough (three.js, no React)
+    rollupOptions: {
+      input: {
+        main: path.resolve(import.meta.dirname, 'index.html'),
+        thermopylae: path.resolve(import.meta.dirname, 'thermopylae.html'),
+      },
+    },
+  },
 })

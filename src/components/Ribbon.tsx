@@ -13,6 +13,8 @@ interface HistoricalEvent {
   e?: string
   k?: string
   c?: [number, number]
+  /** page of a 3D walkthrough, relative to the site root */
+  w?: string
 }
 const EVENTS = events as HistoricalEvent[]
 
@@ -321,7 +323,7 @@ export default function Ribbon({ orientation }: { orientation: Orientation }) {
             const marker = (e.target as SVGElement).closest('[data-event-idx]')
             if (marker) {
               const ev = EVENTS[Number(marker.getAttribute('data-event-idx'))]
-              useStore.getState().setHoveredEvent({ y: ev.y, t: ev.t, k: ev.k })
+              useStore.getState().setHoveredEvent({ y: ev.y, t: ev.t, k: ev.k, w: ev.w })
               useStore.getState().setHovered(null)
               return
             }
@@ -344,6 +346,8 @@ export default function Ribbon({ orientation }: { orientation: Orientation }) {
             const ev = EVENTS[Number(marker.getAttribute('data-event-idx'))]
             useStore.getState().setYearIndex(nearestSnapshot(ev.y))
             if (ev.e) useStore.getState().setSelected(ev.e)
+            // a battle with a walkthrough opens it alongside
+            if (ev.w) window.open(`${import.meta.env.BASE_URL}${ev.w}`, '_blank', 'noreferrer')
             // touch devices never hover: surface the note briefly on tap
             if (window.matchMedia('(hover: none)').matches) {
               useStore.getState().setHoveredEvent({ y: ev.y, t: ev.t, k: ev.k })
@@ -480,7 +484,7 @@ export default function Ribbon({ orientation }: { orientation: Orientation }) {
             return (
               <circle
                 key={idx}
-                className={ev.k === 'battle' ? 'event-dot battle' : 'event-dot'}
+                className={`event-dot${ev.k === 'battle' ? ' battle' : ''}${ev.w ? ' walkthrough' : ''}`}
                 cx={vertical ? dims.w - 7 : t}
                 cy={vertical ? t : dims.h - 7}
                 r={3}

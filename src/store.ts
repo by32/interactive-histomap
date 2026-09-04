@@ -19,7 +19,7 @@ interface HistomapState {
   /** hovered historical city (map) */
   hoveredCity: { n: string; f: number; t?: number; w?: string } | null
   /** hovered event marker (ribbon or map) */
-  hoveredEvent: { y: number; t: string; k?: string } | null
+  hoveredEvent: { y: number; t: string; k?: string; w?: string } | null
   /** empire-focus mode: trace the selected polity across its whole history */
   focusOn: boolean
   setData: (timeline: Timeline, entities: EntityIndex) => void
