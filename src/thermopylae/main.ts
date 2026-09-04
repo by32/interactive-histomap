@@ -58,6 +58,7 @@ if (gpu) {
 const updateEvidence = setupEvidence()
 
 const controls = new OrbitControls(camera, canvas)
+controls.enabled = Boolean(gpu)
 controls.enableDamping = true
 controls.dampingFactor = 0.08
 controls.minDistance = 12
@@ -282,6 +283,7 @@ autoBtn.addEventListener('click', () => {
   autoTimer = 0
 })
 $('#refly').addEventListener('click', () => {
+  if (!gpu) (renderer as AtlasRenderer).resetView()
   if (filmActive) {
     followCamera = true
     renderFilm(true)
@@ -616,6 +618,7 @@ function frame() {
   needle.style.transform = `rotate(${(-az * 180) / Math.PI}deg)`
 
   if (gpu) updateLabels()
+  else (renderer as AtlasRenderer).showLabels = labelsOn
   // flag quiet frames for tests and screenshots
   const settled = filmActive ? !film.playing : camK >= 1 && lightK >= 1 && armies.settled
   if (document.body.dataset.settled !== String(settled)) document.body.dataset.settled = String(settled)
