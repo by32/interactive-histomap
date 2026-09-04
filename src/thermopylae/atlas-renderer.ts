@@ -11,14 +11,46 @@ export class AtlasRenderer {
   private ctx: CanvasRenderingContext2D
   private maps: HTMLCanvasElement[]
   private canvas: HTMLCanvasElement
+  showLabels = true
+  private zoom = 1
+  private pan = {x:0,y:0}
+  private pointers = new Map<number,{x:number;y:number}>()
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas
     this.ctx = canvas.getContext('2d')!
     this.maps = [this.buildMap(false), this.buildMap(true)]
     document.body.dataset.renderer = 'atlas'
+    canvas.setAttribute('aria-label','Animated relief atlas of Thermopylae; drag to pan and pinch or scroll to zoom')
+    canvas.addEventListener('pointerdown',e=>{
+      this.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY})
+      canvas.setPointerCapture(e.pointerId)
+    })
+    const release=(e:PointerEvent)=>{this.pointers.delete(e.pointerId)}
+    canvas.addEventListener('pointerup',release)
+    canvas.addEventListener('pointercancel',release)
+    canvas.addEventListener('pointermove',e=>{
+      const before=this.pointers.get(e.pointerId)
+      if(!before)return
+      const other=Array.from(this.pointers).find(([id])=>id!==e.pointerId)?.[1]
+      if(other) {
+        const oldDistance=Math.hypot(before.x-other.x,before.y-other.y)
+        const distance=Math.hypot(e.clientX-other.x,e.clientY-other.y)
+        if(oldDistance>4)this.changeZoom(this.zoom*distance/oldDistance,(e.clientX+other.x)/2,(e.clientY+other.y)/2)
+      } else { this.pan.x+=e.clientX-before.x;this.pan.y+=e.clientY-before.y }
+      this.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY})
+    })
+    canvas.addEventListener('wheel',e=>{e.preventDefault();this.changeZoom(this.zoom*Math.exp(-e.deltaY*.001),e.clientX,e.clientY)},{passive:false})
+  }
+  private changeZoom(value:number,x:number,y:number) {
+    const next=THREE.MathUtils.clamp(value,.7,6),factor=next/this.zoom
+    const cx=this.canvas.clientWidth/2,cy=this.canvas.clientHeight/2-35
+    this.pan.x=x-cx-(x-cx-this.pan.x)*factor
+    this.pan.y=y-cy-(y-cy-this.pan.y)*factor
+    this.zoom=next
   }
   setPixelRatio(ratio: number) { this.ratio = Math.min(1.5,ratio) }
+  resetView() { this.zoom=1;this.pan={x:0,y:0} }
   getPixelRatio() { return this.ratio }
   setSize(w: number,h: number) { this.canvas.width=w*this.ratio; this.canvas.height=h*this.ratio }
 
@@ -48,8 +80,9 @@ export class AtlasRenderer {
     const ctx=this.ctx,w=this.canvas.width/this.ratio,h=this.canvas.height/this.ratio
     ctx.setTransform(this.ratio,0,0,this.ratio,0,0)
     ctx.fillStyle='#122b30';ctx.fillRect(0,0,w,h)
-    const scale=Math.max(w/6600,(h-160)/4200)
-    const left=(w-6600*scale)/2,top=(h-4200*scale)/2-35
+    const scale=Math.max(w/6600,(h-160)/4200)*this.zoom
+    const left=(w-6600*scale)/2+this.pan.x,top=(h-4200*scale)/2-35+this.pan.y
+    this.canvas.dataset.zoom=this.zoom.toFixed(2)
     const px=(x:number)=>left+(x+3600)*scale
     const py=(z:number)=>top+(z+2200)*scale
     ctx.drawImage(this.maps[document.body.dataset.topo==='today'?1:0],left,top,6600*scale,4200*scale)
@@ -70,7 +103,7 @@ export class AtlasRenderer {
     ctx.font='italic 17px Georgia';ctx.textAlign='center';ctx.fillStyle='#dce0ca'
     ctx.shadowColor='rgba(0,0,0,.8)';ctx.shadowBlur=5
     for(const [label,x,z] of [['MALIAN GULF',-350,-1450],['Mount Kallidromo',-300,1850],['Anopaea path',-1400,1250],['West Gate',-2000,-220],['Middle Gate',30,shoreline(30)-65],['Alpeni',1950,-200]] as [string,number,number][]) {
-      ctx.fillText(label,px(x),py(z))
+      if(this.showLabels)ctx.fillText(label,px(x),py(z))
     }
     ctx.shadowBlur=0
     const shade=ctx.createLinearGradient(0,0,0,h)

@@ -117,7 +117,12 @@ body[data-mode='film'] .artifact-info strong { font-size:17px; }
 body[data-mode='film'] .artifact-link { margin-top:9px; }
 #atlas-notice { display:none;position:fixed;top:118px;left:calc(4vw + 65px);color:#c6d0c5;font-size:12px;max-width:210px; }
 body[data-renderer='atlas'] #atlas-notice { display:block; }
-body[data-renderer='atlas'] #labels,body[data-renderer='atlas'] #film-follow,body[data-renderer='atlas'] #refly { display:none; }
+body[data-renderer='atlas'] #needle { transform:none!important; }
+body[data-renderer='atlas'] #scene { cursor:grab; }
+body[data-renderer='atlas'] #scene:active { cursor:grabbing; }
+body[data-renderer='atlas'] .hint { font-size:0; }
+body[data-renderer='atlas'] .hint::after { content:'drag to pan · pinch or scroll to zoom · ← → steps';font-size:12px; }
+body[data-renderer='atlas'] #labels,body[data-renderer='atlas'] #film-follow { display:none; }
 #evidence-dialog { width:min(1120px,94vw);max-height:92dvh;margin:auto;padding:34px;color:var(--ink);background:#142528;border:1px solid #647268;box-shadow:0 24px 120px #0008;overflow:auto; }
 #evidence-dialog::backdrop { background:#030d11c9;backdrop-filter:blur(12px); }
 .evidence-top { display:flex;justify-content:space-between;align-items:start;gap:24px; }
