@@ -2,9 +2,32 @@ import { test, expect } from '@playwright/test'
 import * as THREE from 'three'
 import { FilmClock, clampTime } from '../src/thermopylae/timeline'
 import { UNIT_KEYS } from '../src/thermopylae/film'
+import { FilmCamera } from '../src/thermopylae/film-camera'
 import { Armies, pathAt } from '../src/thermopylae/units'
 import { heightAt, cliffFoot, shoreline } from '../src/thermopylae/terrain'
 import { STAGES } from '../src/thermopylae/script'
+
+test('camera focal points and sightlines remain above the terrain between shots', () => {
+  const path = new FilmCamera()
+  const eye = new THREE.Vector3()
+  const target = new THREE.Vector3()
+  const ray = new THREE.Vector3()
+  for (let time = 0; time <= 60; time += 0.25) {
+    path.sample(time, eye, target)
+    expect(target.y).toBeGreaterThan(heightAt(target.x, target.z))
+    expect(eye.y).toBeGreaterThan(heightAt(eye.x, eye.z))
+    expect(eye.distanceTo(target)).toBeLessThan(9000)
+    for (let i = 1; i < 31; i++) {
+      ray.lerpVectors(eye, target, i / 31)
+      expect(ray.y, `sightline at ${time}s, segment ${i}`).toBeGreaterThan(heightAt(ray.x, ray.z))
+    }
+  }
+  path.sample(27, eye, target)
+  const before = [eye.clone(), target.clone()]
+  path.sample(59, eye, target)
+  path.sample(27, eye, target)
+  expect([eye, target]).toEqual(before)
+})
 
 test('the clock pauses, seeks, changes speed and stops at the end', () => {
   const clock = new FilmClock()

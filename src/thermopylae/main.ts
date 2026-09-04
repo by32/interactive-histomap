@@ -4,7 +4,8 @@ import './style.css'
 import { heightAt, modernHeightAt } from './terrain'
 import { GROUPS, STAGES, LABELS, FIGURE_SCALE, type Stage } from './script'
 import { Armies } from './units'
-import { CAMERA_KEYS, FILM_CHAPTERS, LIGHT_KEYS, UNIT_KEYS } from './film'
+import { FILM_CHAPTERS, LIGHT_KEYS, UNIT_KEYS } from './film'
+import { FilmCamera } from './film-camera'
 import { FilmClock, FILM_DURATION, clampTime, interval, smoothstep } from './timeline'
 import {
   buildTerrain,
@@ -289,10 +290,15 @@ $('#panel-toggle').addEventListener('click', () => {
 })
 
 window.addEventListener('keydown', (e) => {
+  // Escape must also work while the scrubber or speed selector has focus.
+  if (filmActive && e.key === 'Escape') {
+    e.preventDefault()
+    exitFilm()
+    return
+  }
   if ((e.target as HTMLElement).closest('input, select, textarea, [contenteditable="true"]')) return
   if (filmActive) {
-    if (e.key === 'Escape') exitFilm()
-    else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
       e.preventDefault()
       film.playing = false
       film.seek(film.time + (e.key === 'ArrowRight' ? 5 : -5))
@@ -307,7 +313,11 @@ window.addEventListener('keydown', (e) => {
       toggleFilm()
     } else if (e.key === 'r') $('#film-replay').click()
     else if (e.key === 'l') $('#labels-toggle').click()
-    else if (e.key === 't') { exitFilm(); setModern(!modern) }
+    else if (e.key === 't') {
+      const nextModern = !modern
+      exitFilm()
+      setModern(nextModern)
+    }
     return
   }
   if (e.key === 'ArrowRight' || e.key === 'PageDown') go(current + 1)
@@ -340,16 +350,7 @@ window.addEventListener('hashchange', () => {
 const filmPanel = $('#cinema')
 const scrub = $<HTMLInputElement>('#film-scrub')
 const playFilmBtn = $<HTMLButtonElement>('#film-play')
-const cameraPath = new THREE.CatmullRomCurve3(CAMERA_KEYS.map((key) => {
-  const point = new THREE.Vector3()
-  resolve(key.pos, point)
-  return point
-}), false, 'centripetal')
-const targetPath = new THREE.CatmullRomCurve3(CAMERA_KEYS.map((key) => {
-  const point = new THREE.Vector3()
-  resolve(key.target, point)
-  return point
-}), false, 'centripetal')
+const filmCamera = new FilmCamera()
 
 FILM_CHAPTERS.forEach((chapter, index) => {
   const button = document.createElement('button')
@@ -387,11 +388,7 @@ function renderFilm(force = false) {
   // A tiny deterministic flicker freezes and rewinds along with the torches.
   armies.setTorchGlow(lightNow.fires * (0.94 + 0.06 * Math.sin(film.time * 11)))
   if (followCamera) {
-    const shot = interval(CAMERA_KEYS, film.time)
-    const fraction = (shot.index + shot.progress) / (CAMERA_KEYS.length - 1)
-    cameraPath.getPoint(fraction, camera.position)
-    targetPath.getPoint(fraction, controls.target)
-    camera.position.y = Math.max(camera.position.y, heightAt(camera.position.x, camera.position.z) + 25)
+    filmCamera.sample(film.time, camera.position, controls.target)
     controls.update()
   }
   const chapterIndex = FILM_CHAPTERS.findLastIndex((chapter) => film.time >= chapter.time)
