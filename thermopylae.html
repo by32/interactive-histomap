@@ -6,33 +6,37 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="A narrated 3D walkthrough of the battle of Thermopylae, 480 BC: the three gates, the Phocian wall, the Anopaea path and the last stand on Kolonos hill."
+      content="Explore Thermopylae in a cinematic 3D historical atlas, with an animated night march and surviving Greek and Persian artwork from the age of the battle."
     />
-    <meta property="og:title" content="Thermopylae, 480 BC — a 3D walkthrough" />
+    <meta property="og:title" content="Thermopylae, 480 BC — The Hot Gates" />
     <meta
       property="og:description"
       content="Walk the Hot Gates in three dimensions: the pass, the wall, the mountain path and the last stand, step by step."
     />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://by32.github.io/interactive-histomap/thermopylae.html" />
-    <meta name="theme-color" content="#1c2230" />
-    <title>Thermopylae, 480 BC — 3D walkthrough · The Interactive Histomap</title>
+    <meta name="theme-color" content="#0c191c" />
+    <title>Thermopylae — The Hot Gates · 480 BC</title>
   </head>
   <body>
+    <div id="scene-loading" role="status"><span>THERMOPYLAE</span><p>Opening the pass…</p></div>
     <canvas id="scene" aria-label="3D model of the pass of Thermopylae"></canvas>
+    <div id="scene-shade" aria-hidden="true"></div>
+    <div id="shot-transition" aria-hidden="true"></div>
     <div id="labels" aria-hidden="true"></div>
 
     <header class="topbar">
       <a class="back" href="./#y=-500&e=achaemenid" title="Back to the Histomap at 480 BC">← Histomap</a>
-      <h1>Thermopylae <span>480 BC · 3D walkthrough</span></h1>
+      <h1>Thermopylae <span>THE HOT GATES · 480 BC</span></h1>
       <div class="tools">
         <div class="segmented" role="group" aria-label="Topography" title="Switch between the coast of 480 BC and today's silted plain (T)">
           <button id="topo-ancient" class="chip on">480 BC</button>
-          <button id="topo-modern" class="chip">today</button>
+          <button id="topo-modern" class="chip">Today</button>
         </div>
-        <button id="labels-toggle" class="chip on" title="Toggle place names (L)">names</button>
-        <button id="legend-toggle" class="chip" title="Who is who">legend</button>
-        <button id="refly" class="chip" title="Return the camera to this step's viewpoint (R)">reset view</button>
+        <button id="labels-toggle" class="chip on" title="Toggle place names (L)">Place names</button>
+        <button id="legend-toggle" class="chip" title="Who is who">Armies</button>
+        <button id="evidence-open" class="chip">Art &amp; evidence</button>
+        <button id="refly" class="chip" title="Return the camera to this step's viewpoint (R)">Reset view</button>
       </div>
     </header>
 
@@ -40,11 +44,17 @@
       <div id="needle">N</div>
     </div>
 
+    <button id="artifact-card" aria-label="Explore the period artwork and historical evidence">
+      <span class="artifact-overline">FROM THE AGE OF THE BATTLE</span>
+      <img id="artifact-image" alt="Period artwork" width="240" height="270" />
+      <span class="artifact-info"><strong id="artifact-name"></strong><span id="artifact-date"></span><span class="artifact-link">Explore the evidence ↗</span></span>
+    </button>
+    <p id="atlas-notice">Relief atlas · 3D is unavailable in this browser</p>
     <aside id="legend">
       <h3>Who is who</h3>
       <ul id="legend-list"></ul>
       <p class="fine">
-        Each figure stands for <span id="figure-scale">5</span> soldiers. Greek numbers follow
+        Colours distinguish formations, not documented uniforms. Each figure stands for <span id="figure-scale">5</span> soldiers. Greek numbers follow
         Herodotus 7.202–203; the Persian host is drawn at 30,000 and its true size is disputed.
       </p>
       <h3>About this reconstruction</h3>
@@ -62,8 +72,8 @@
 
     <section id="panel" aria-live="polite">
       <button id="panel-toggle" class="grip" title="Show or hide the narration" aria-label="Toggle narration"></button>
-      <button id="watch-film" class="film-entry">▶ Watch the night march <span>1 minute</span></button>
-      <div class="stage">
+      <button id="watch-film" class="film-entry"><span class="entry-play">▶</span><span class="entry-copy">Watch the night march<small>Five chapters · one minute</small></span><span class="entry-arrow">↗</span></button>
+      <div class="stage"><div class="chapter-line" aria-hidden="true"></div>
         <div class="kicker-row">
           <span id="kicker" class="kicker"></span>
           <span id="counter" class="counter"></span>
@@ -82,7 +92,7 @@
 
     <section id="cinema" aria-label="Animated night march" hidden>
       <div class="film-heading">
-        <span id="film-kicker" class="kicker">Night of day two</span>
+        <div class="film-chapter-heading"><span id="film-number">01</span><span id="film-kicker" class="kicker">Night of day two</span></div>
         <button id="exit-film" class="chip">Back to walkthrough</button>
       </div>
       <div id="film-narration" aria-live="polite" aria-atomic="true">
@@ -105,9 +115,15 @@
         <button id="film-follow" class="chip on" aria-pressed="true">Follow camera</button>
       </div>
       <input id="film-scrub" type="range" min="0" max="60" value="0" step="0.1" aria-label="Film position" />
-      <p class="film-note">Time compressed · schematic reconstruction · drag the scene to pause and explore</p>
+      <p class="film-note">Reconstructed from ancient accounts · drag to pause and explore</p>
     </section>
 
+    <dialog id="evidence-dialog" aria-labelledby="evidence-title">
+      <div class="evidence-top"><div><p class="kicker">THE MATERIAL RECORD</p><h2 id="evidence-title">The art behind the reconstruction</h2></div><button id="evidence-close" class="chip" aria-label="Close evidence">Close ×</button></div>
+      <p class="evidence-intro">Objects made in the world of Thermopylae. These surviving works inform the equipment and visual language of the scene.</p>
+      <div id="evidence-gallery"></div>
+      <div class="reconstruction-note"><h3>Evidence and interpretation</h3><p>The Greek figures carry round shields, thrusting spears and Corinthian-type helmets. Persian figures wear sleeved tunics, trousers and soft caps, with wicker shields and bows, following <a href="https://lexundria.com/hdt/7.61/mcly" target="_blank" rel="noopener">Herodotus 7.61</a>. Colours distinguish armies; they are not known uniforms. The Susa archers are palace imagery, and the vase is not a documented scene of Thermopylae.</p><p>The mountain and ancient shore form a schematic reconstruction, not a surveyed landscape. The path’s exact course is debated. The animation compresses a night and morning into a minute; figure size and numbers are adjusted for legibility. <a href="https://classics.mit.edu/Herodotus/history.7.vii.html" target="_blank" rel="noopener">Read the ancient account ↗</a></p></div>
+    </dialog>
     <script type="module" src="/src/thermopylae/main.ts"></script>
   </body>
 </html>

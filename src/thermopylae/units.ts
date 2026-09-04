@@ -1,5 +1,6 @@
 import * as THREE from 'three'
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
+import { soldierGeometry, soldierMaterial } from './soldier'
+import { softenPoints } from './atmosphere'
 import { heightAt, stripZ, clampToStrip, ANOPAEA_XZ } from './terrain'
 import { GROUPS, type GroupDef, type Placement } from './script'
 import { interval } from './timeline'
@@ -31,63 +32,6 @@ export function pathAt(t: number, out: THREE.Vector3, dir?: THREE.Vector3) {
   const b = anopaea.points[i + 1]
   out.lerpVectors(a, b, f - i)
   if (dir) dir.subVectors(b, a).setY(0).normalize()
-}
-
-/* ---------- figure geometry ---------- */
-const FIGURE_SIZE = 1.6
-
-function paint(geom: THREE.BufferGeometry, color: number, gait = 0): THREE.BufferGeometry {
-  const c = new THREE.Color(color)
-  const n = geom.attributes.position.count
-  const arr = new Float32Array(n * 3)
-  for (let i = 0; i < n; i++) {
-    arr[i * 3] = c.r
-    arr[i * 3 + 1] = c.g
-    arr[i * 3 + 2] = c.b
-  }
-  geom.setAttribute('color', new THREE.BufferAttribute(arr, 3))
-  geom.setAttribute('gait', new THREE.BufferAttribute(new Float32Array(n).fill(gait), 1))
-  return geom
-}
-
-/** a stylised soldier, ~2 m tall, facing local +z */
-function figureGeometry(group: GroupDef): THREE.BufferGeometry {
-  const parts: THREE.BufferGeometry[] = []
-  const body = new THREE.CylinderGeometry(0.42, 0.5, 1.15, 6).translate(0, 1.05, 0)
-  parts.push(paint(body, group.color))
-  for (const side of [-1, 1]) {
-    const leg = new THREE.CylinderGeometry(0.12, 0.1, 0.65, 5).translate(side * 0.22, 0.325, 0)
-    parts.push(paint(leg, 0x806345, side))
-  }
-  const head = new THREE.SphereGeometry(0.3, 6, 5).translate(0, 1.85, 0)
-  parts.push(paint(head, group.side === 'greek' ? 0xb98a5a : 0xc9a074))
-  if (group.side === 'greek') {
-    // helmet crest and hoplon
-    const crest = new THREE.BoxGeometry(0.1, 0.32, 0.7).translate(0, 2.15, 0)
-    parts.push(paint(crest, group.id === 'spartans' ? 0x8e2028 : 0x2a2622))
-    const shield = new THREE.CylinderGeometry(0.62, 0.62, 0.08, 10)
-      .rotateX(Math.PI / 2)
-      .translate(-0.25, 1.05, 0.5)
-    parts.push(paint(shield, 0xb08a3c))
-    const spear = new THREE.CylinderGeometry(0.035, 0.035, 3.4, 4)
-      .rotateX(-0.25)
-      .translate(0.5, 1.9, 0.1)
-    parts.push(paint(spear, 0x6b4c2a))
-  } else {
-    const cap = new THREE.CylinderGeometry(0.22, 0.3, 0.35, 6).translate(0, 2.15, 0)
-    parts.push(paint(cap, group.id === 'immortals' ? 0xe0c24a : 0x5a4030))
-    if (group.id === 'immortals' || group.id === 'medes') {
-      const spara = new THREE.BoxGeometry(0.9, 1.5, 0.08).translate(-0.2, 1.0, 0.48)
-      parts.push(paint(spara, 0xc7b27a))
-    }
-    const spear = new THREE.CylinderGeometry(0.03, 0.03, 2.4, 4).translate(0.45, 1.8, 0.1)
-    parts.push(paint(spear, 0x6b4c2a))
-  }
-  const merged = mergeGeometries(parts, false)!
-  for (const p of parts) p.dispose()
-  // figures stand for several men each, so they are drawn larger than life
-  merged.scale(FIGURE_SIZE, FIGURE_SIZE, FIGURE_SIZE)
-  return merged
 }
 
 /* ---------- per-figure target layouts ---------- */
@@ -231,6 +175,8 @@ interface Army {
   from: Layout
   to: Layout
   seed: number
+  detail: THREE.InstancedMesh
+  matrices: Float32Array
 }
 
 export class Armies {
@@ -248,36 +194,25 @@ export class Armies {
   private marchTime = { value: 0 }
 
   constructor() {
-    this.material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0.05 })
-    this.material.onBeforeCompile = (shader) => {
-      shader.uniforms.marchTime = this.marchTime
-      shader.vertexShader = shader.vertexShader.replace('#include <common>', `#include <common>
-        attribute float gait;
-        attribute vec2 motion;
-        uniform float marchTime;`)
-      shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
-        float stride = sin(marchTime * 8.0 + motion.x);
-        transformed.z += gait * stride * max(0.0, 1.04 - position.y) * 0.42 * motion.y;
-        transformed.y += abs(stride) * 0.10 * motion.y * (gait == 0.0 ? 1.0 : 0.3);
-        transformed.x += sin(marchTime * 4.0 + motion.x) * 0.025 * motion.y * max(position.y, 0.0);`)
-    }
+    this.material = soldierMaterial(this.marchTime)
     const immortals = GROUPS.find((g) => g.id === 'immortals')!
     const tg = new THREE.BufferGeometry()
     tg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(immortals.count * 3), 3))
     this.torchMat = new THREE.PointsMaterial({
       color: 0xffb060,
-      size: 7,
+      size: 15,
       sizeAttenuation: true,
       transparent: true,
       opacity: 0,
       depthWrite: false,
     })
+    softenPoints(this.torchMat)
     this.torches = new THREE.Points(tg, this.torchMat)
     this.torches.frustumCulled = false
     this.torches.visible = false
     this.root.add(this.torches)
     GROUPS.forEach((def, gi) => {
-      const geom = figureGeometry(def)
+      const geom = soldierGeometry(def)
       const motion = new Float32Array(def.count * 2)
       for (let i = 0; i < def.count; i++) motion[i * 2] = i * 2.399963
       geom.setAttribute('motion', new THREE.InstancedBufferAttribute(motion, 2))
@@ -286,7 +221,16 @@ export class Armies {
       mesh.name = def.id
       const seed = 1000 + gi * 7919
       const hidden = layoutFor(def, { kind: 'hidden' }, seed)
-      this.armies.push({ def, mesh, from: hidden, to: hidden, seed })
+      const detailGeometry = soldierGeometry(def, true)
+      detailGeometry.setAttribute('motion', new THREE.InstancedBufferAttribute(new Float32Array(96 * 2), 2))
+      const detail = new THREE.InstancedMesh(detailGeometry, this.material, 96)
+      detail.name = def.id + '-detail'
+      detail.count = 0
+      detail.frustumCulled = false
+      detail.castShadow = detail.receiveShadow = true
+      mesh.receiveShadow = true
+      this.root.add(detail)
+      this.armies.push({ def, mesh, from: hidden, to: hidden, seed, detail, matrices: new Float32Array(def.count * 16) })
       this.root.add(mesh)
     })
     this.apply()
@@ -363,6 +307,35 @@ export class Armies {
     if (!wasDone || marching) this.apply()
   }
 
+  /** Use detailed helmets, shield rims and wickerwork only within a useful viewing distance. */
+  updateDetail(camera: THREE.Vector3) {
+    const matrix = new THREE.Matrix4()
+    const hidden = new THREE.Matrix4().makeScale(0, 0, 0)
+    for (const a of this.armies) {
+      const { mesh, detail, matrices } = a
+      detail.count = 0
+      if (!mesh.count) continue
+      mesh.instanceMatrix.array.set(matrices)
+      const nearest: { i: number; d: number }[] = []
+      for (let i = 0; i < mesh.count; i++) {
+        const o = i * 16
+        const d = (matrices[o+12]-camera.x)**2 + (matrices[o+13]-camera.y)**2 + (matrices[o+14]-camera.z)**2
+        if (d < 320 * 320) nearest.push({ i, d })
+      }
+      nearest.sort((a,b) => a.d-b.d)
+      const src = mesh.geometry.getAttribute('motion')
+      const dst = detail.geometry.getAttribute('motion') as THREE.InstancedBufferAttribute
+      for (const { i } of nearest.slice(0, 96)) {
+        const j = detail.count++
+        matrix.fromArray(matrices, i * 16)
+        detail.setMatrixAt(j, matrix)
+        dst.setXY(j, src.getX(i), src.getY(i))
+        mesh.setMatrixAt(i, hidden)
+      }
+      dst.needsUpdate = detail.instanceMatrix.needsUpdate = mesh.instanceMatrix.needsUpdate = true
+    }
+  }
+
   private apply() {
     const k = this.filmProgress ?? ease(this.progress)
     const m = new THREE.Matrix4()
@@ -433,6 +406,7 @@ export class Armies {
           t.needsUpdate = true
         }
       }
+      a.matrices.set(mesh.instanceMatrix.array)
       mesh.instanceMatrix.needsUpdate = true
       motion.needsUpdate = true
     }

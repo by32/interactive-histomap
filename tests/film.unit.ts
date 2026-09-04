@@ -113,3 +113,38 @@ test('the original walkthrough can resume after an arbitrary film seek', () => {
   const expected = fresh.root.getObjectByName('spartans') as THREE.InstancedMesh
   expect(snapshot).toEqual(Array.from(expected.instanceMatrix.array))
 })
+
+test('detailed soldiers replace nearby figures without losing them when the camera leaves', () => {
+  const armies = new Armies()
+  armies.prepareFilm(UNIT_KEYS)
+  armies.sampleFilm(5)
+  const mesh=armies.root.getObjectByName('immortals') as THREE.InstancedMesh
+  const detail=armies.root.getObjectByName('immortals-detail') as THREE.InstancedMesh
+  const original=Array.from(mesh.instanceMatrix.array)
+  const matrix=new THREE.Matrix4()
+  mesh.getMatrixAt(0,matrix)
+  const eye=new THREE.Vector3().setFromMatrixPosition(matrix).add(new THREE.Vector3(10,12,10))
+  armies.updateDetail(eye)
+  expect(detail.count).toBeGreaterThan(0)
+  expect(detail.count).toBeLessThanOrEqual(96)
+  for(let i=0;i<detail.count;i++) {
+    detail.getMatrixAt(i,matrix)
+    expect(new THREE.Vector3().setFromMatrixPosition(matrix).distanceTo(eye)).toBeLessThan(320)
+  }
+  armies.updateDetail(new THREE.Vector3(20000,20000,20000))
+  expect(detail.count).toBe(0)
+  expect(Array.from(mesh.instanceMatrix.array)).toEqual(original)
+})
+
+test('close-shot marching covers human walking distances between editorial cuts', () => {
+  const armies=new Armies()
+  armies.prepareFilm(UNIT_KEYS)
+  const mesh=armies.root.getObjectByName('immortals') as THREE.InstancedMesh
+  const m=new THREE.Matrix4(), before=new THREE.Vector3(), after=new THREE.Vector3()
+  for(const start of [0,12,24]) {
+    armies.sampleFilm(start);mesh.getMatrixAt(0,m);before.setFromMatrixPosition(m)
+    armies.sampleFilm(start+10);mesh.getMatrixAt(0,m);after.setFromMatrixPosition(m)
+    expect(after.distanceTo(before)).toBeGreaterThan(5)
+    expect(after.distanceTo(before)).toBeLessThan(30)
+  }
+})

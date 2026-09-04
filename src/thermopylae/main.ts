@@ -1,5 +1,12 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
+import { flowingWater, shorelineFoam, nightSky, focusLight, coastalRocks } from './atmosphere'
+import { AtlasRenderer } from './atlas-renderer'
+import { setupEvidence } from './evidence'
 import './style.css'
 import { heightAt, modernHeightAt } from './terrain'
 import { GROUPS, STAGES, LABELS, FIGURE_SCALE, type Stage } from './script'
@@ -11,7 +18,6 @@ import {
   buildTerrain,
   buildModernFeatures,
   buildModernCoastGhost,
-  buildSea,
   buildSky,
   buildForest,
   buildCamps,
@@ -28,16 +34,28 @@ const $ = <T extends HTMLElement>(sel: string) => document.querySelector<T>(sel)
 
 /* ---------- renderer & scene ---------- */
 const canvas = $<HTMLCanvasElement>('#scene')
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' })
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+let gpu: THREE.WebGLRenderer | null = null
+try { gpu = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' }) } catch { /* The relief atlas keeps the story usable on devices without WebGL. */ }
+const renderer = gpu ?? new AtlasRenderer(canvas)
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, window.innerWidth < 760 ? 1.35 : 1.75))
 renderer.outputColorSpace = THREE.SRGBColorSpace
 renderer.toneMapping = THREE.ACESFilmicToneMapping
-renderer.toneMappingExposure = 1.05
+renderer.toneMappingExposure = 1.08
 
 const scene = new THREE.Scene()
 scene.fog = new THREE.Fog(0xcdd9e4, 1800, 10500)
 
-const camera = new THREE.PerspectiveCamera(50, 1, 2, 50000)
+const camera = new THREE.PerspectiveCamera(46, 1, .6, 50000)
+let composer: EffectComposer | null = null
+if (gpu) {
+  gpu.shadowMap.enabled = true
+  gpu.shadowMap.type = THREE.PCFSoftShadowMap
+  composer = new EffectComposer(gpu)
+  composer.addPass(new RenderPass(scene,camera))
+  composer.addPass(new UnrealBloomPass(new THREE.Vector2(1,1),.19,.5,1.05))
+  composer.addPass(new OutputPass())
+}
+const updateEvidence = setupEvidence()
 
 const controls = new OrbitControls(camera, canvas)
 controls.enableDamping = true
@@ -53,7 +71,12 @@ const fill = new THREE.DirectionalLight(0xcfdcec, 0.55)
 fill.position.set(-1500, 3000, -6000)
 const hemi = new THREE.HemisphereLight(0xbcd6ee, 0x6b6046, 0.75)
 const ambient = new THREE.AmbientLight(0xffffff, 0.3)
-scene.add(sun, fill, hemi, ambient)
+sun.castShadow = true
+sun.shadow.mapSize.set(2048,2048)
+sun.shadow.bias = -.00025
+sun.shadow.normalBias = .35
+sun.shadow.radius = 2
+scene.add(sun, sun.target, fill, hemi, ambient)
 
 const sky = buildSky()
 scene.add(sky.mesh)
@@ -67,7 +90,11 @@ let modernFeatures: THREE.Group | null = null
 let modern = false
 /** the ground under the current topography */
 let groundAt: (x: number, z: number) => number = heightAt
-scene.add(buildSea())
+const water = flowingWater()
+const foam = shorelineFoam()
+const stars = nightSky()
+scene.add(water.mesh, foam.mesh, stars.mesh)
+scene.add(coastalRocks())
 scene.add(buildForest())
 const camps = buildCamps()
 scene.add(camps.tents, camps.fires)
@@ -77,6 +104,8 @@ const path = buildPath()
 scene.add(path)
 const armies = new Armies()
 scene.add(armies.root)
+const torchLights = Array.from({length:3}, () => new THREE.PointLight(0xffa34b,0,38,1.7))
+scene.add(...torchLights)
 const film = new FilmClock()
 let filmActive = false
 let followCamera = true
@@ -96,6 +125,8 @@ const LIGHT_S = 2.4
 
 function applyLight(p: LightPreset) {
   sun.position.copy(p.sunDir).multiplyScalar(5000)
+  stars.material.opacity = p.fires * .8
+  scene.environmentIntensity = .45 - p.fires * .28
   sun.color.copy(p.sunColor)
   sun.intensity = p.sunIntensity
   fill.intensity = 0.22 * p.sunIntensity
@@ -106,6 +137,8 @@ function applyLight(p: LightPreset) {
   sky.uniforms.top.value.copy(p.skyTop)
   sky.uniforms.bottom.value.copy(p.skyBottom)
   sky.uniforms.fog.value.copy(p.fog)
+  sky.uniforms.sun.value.copy(p.sunDir)
+  sky.uniforms.glow.value = 1 - p.fires * .94
   const fog = scene.fog as THREE.Fog
   fog.color.copy(p.fog)
   fog.near = p.fogNear
@@ -220,7 +253,8 @@ function go(i: number, fly = true) {
   kickerEl.textContent = stage.kicker
   titleEl.textContent = stage.title
   textEl.innerHTML = stage.text
-  counterEl.textContent = `${idx + 1} / ${STAGES.length}`
+  counterEl.textContent = `${String(idx + 1).padStart(2, '0')} / ${STAGES.length}`
+  updateEvidence(idx)
   Array.from(dotsEl.children).forEach((d, k) => d.classList.toggle('on', k === idx))
   prevBtn.disabled = idx === 0
   nextBtn.disabled = idx === STAGES.length - 1
@@ -263,7 +297,8 @@ function setModern(on: boolean) {
   modern = on
   groundAt = on ? modernHeightAt : heightAt
   terrainAncient.visible = !on
-  modernCoastGhost.visible = !on
+  modernCoastGhost.visible = !on && !filmActive
+  foam.mesh.visible = !on
   if (terrainModern) terrainModern.visible = on
   if (modernFeatures) modernFeatures.visible = on
   $('#topo-ancient').classList.toggle('on', !on)
@@ -290,6 +325,7 @@ $('#panel-toggle').addEventListener('click', () => {
 })
 
 window.addEventListener('keydown', (e) => {
+  if (document.querySelector('dialog[open]')) return
   // Escape must also work while the scrubber or speed selector has focus.
   if (filmActive && e.key === 'Escape') {
     e.preventDefault()
@@ -355,6 +391,7 @@ const filmCamera = new FilmCamera()
 FILM_CHAPTERS.forEach((chapter, index) => {
   const button = document.createElement('button')
   button.textContent = chapter.label
+  button.dataset.number = String(index+1).padStart(2, '0')
   button.title = `Jump to ${chapter.time} seconds: ${chapter.title}`
   button.addEventListener('click', () => {
     film.playing = false
@@ -394,7 +431,14 @@ function renderFilm(force = false) {
   const chapterIndex = FILM_CHAPTERS.findLastIndex((chapter) => film.time >= chapter.time)
   const chapter = FILM_CHAPTERS[chapterIndex]
   if (filmChapter !== chapterIndex) {
+    if (!reducedMotion.matches) {
+      $('#film-narration').getAnimations().forEach(animation => animation.cancel())
+      $('#film-narration').animate([{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'translateY(0)' }], { duration: 650, easing: 'ease-out' })
+      if (filmChapter >= 0 && followCamera) $('#shot-transition').animate([{ opacity: .96 }, { opacity: 0 }], { duration: 620, easing: 'ease-out' })
+    }
     filmChapter = chapterIndex
+    $('#film-number').textContent = String(chapterIndex+1).padStart(2, '0')
+    updateEvidence(chapter.stage)
     $('#film-kicker').textContent = STAGES[chapter.stage].kicker
     $('#film-title').textContent = chapter.title
     $('#film-caption').textContent = chapter.caption
@@ -405,6 +449,7 @@ function renderFilm(force = false) {
     document.body.dataset.stage = STAGES[chapter.stage].id
   }
   scrub.value = String(film.time)
+  scrub.style.setProperty('--progress', `${film.time / FILM_DURATION * 100}%`)
   const seconds = Math.floor(film.time)
   const stamp = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
   $('#film-time').textContent = `${stamp} / 1:00`
@@ -442,8 +487,8 @@ function enterFilm(time = 0, play = true) {
   $('#panel').hidden = true
   filmPanel.hidden = false
   const material = path.material as THREE.MeshStandardMaterial
-  material.emissiveIntensity = 1.1
-  material.opacity = 1
+  material.emissiveIntensity = .12
+  material.opacity = .55
   // Reduced-motion mode uses the existing overview while the viewer controls the camera.
   if (!followCamera) {
     resolve(STAGES[6].camera.pos, camera.position)
@@ -492,6 +537,7 @@ $('#film-replay').addEventListener('click', () => { followCamera = !reducedMotio
 $('#film-follow').addEventListener('click', () => { followCamera = !followCamera; renderFilm(true) })
 $('#film-speed').addEventListener('change', (event) => { film.speed = Number((event.target as HTMLSelectElement).value) })
 scrub.addEventListener('input', () => { film.playing = false; film.seek(Number(scrub.value)); renderFilm(true) })
+document.addEventListener('evidence-open', () => { if (filmActive) { film.playing = false; updateFilmControls() } autoplay = false; autoBtn.classList.remove('on'); autoBtn.textContent = '▶ auto' })
 document.addEventListener('visibilitychange', () => { if (document.hidden && filmActive) { film.playing = false; updateFilmControls() } })
 
 /* ---------- legend ---------- */
@@ -517,15 +563,22 @@ function resize() {
     renderer.setSize(w, h, false)
     camera.aspect = w / h
     camera.updateProjectionMatrix()
+    composer?.setSize(w,h)
   }
 }
 
 const timer = new THREE.Timer()
 const camDir = new THREE.Vector3()
+let environmentTime = 0
+let qualitySeconds = 0
+let qualityFrames = 0
 function frame() {
   timer.update()
   const dt = Math.min(0.1, timer.getDelta())
   resize()
+  if (!reducedMotion.matches) environmentTime += dt
+  const time = filmActive ? film.time : environmentTime
+  water.time.value = foam.time.value = time
 
   if (camK < 1) {
     camK = Math.min(1, camK + dt / CAM_S)
@@ -562,16 +615,49 @@ function frame() {
   const az = Math.atan2(camDir.x, -camDir.z)
   needle.style.transform = `rotate(${(-az * 180) / Math.PI}deg)`
 
-  updateLabels()
+  if (gpu) updateLabels()
   // flag quiet frames for tests and screenshots
   const settled = filmActive ? !film.playing : camK >= 1 && lightK >= 1 && armies.settled
   if (document.body.dataset.settled !== String(settled)) document.body.dataset.settled = String(settled)
-  renderer.render(scene, camera)
+  if (gpu) {
+    armies.updateDetail(camera.position)
+    if (lightNow.fires > .05) {
+      const torches = armies.torches.geometry.getAttribute('position')
+      const nearest: {i:number;d:number}[] = []
+      for(let i=0;i<torches.count;i+=3) {
+        const d=(torches.getX(i)-camera.position.x)**2+(torches.getY(i)-camera.position.y)**2+(torches.getZ(i)-camera.position.z)**2
+        if(d<250*250) nearest.push({i,d})
+      }
+      nearest.sort((a,b)=>a.d-b.d)
+      torchLights.forEach((light,j)=>{
+        const pick=nearest[j*3]
+        light.intensity=pick?42*lightNow.fires*(.9+.1*Math.sin(time*9+j)):0
+        if(pick)light.position.fromBufferAttribute(torches,pick.i)
+      })
+    } else torchLights.forEach(light=>{light.intensity=0})
+    focusLight(sun, controls.target, camera.position, lightNow)
+    composer!.render()
+    qualitySeconds += dt; qualityFrames++
+    if (qualityFrames === 180) {
+      if (qualitySeconds > 6.7 && renderer.getPixelRatio() > 1) {
+        renderer.setPixelRatio(Math.max(1,renderer.getPixelRatio()-.25))
+        composer!.setPixelRatio(renderer.getPixelRatio())
+      }
+      qualityFrames=0; qualitySeconds=0
+    }
+  } else renderer.render(scene, camera)
   requestAnimationFrame(frame)
 }
 
 /* ---------- boot ---------- */
 applyLight(lightNow)
+if (gpu) {
+  const environmentScene = new THREE.Scene()
+  environmentScene.add(sky.mesh.clone())
+  const pmrem = new THREE.PMREMGenerator(gpu)
+  scene.environment = pmrem.fromScene(environmentScene,.06,.1,50000).texture
+  pmrem.dispose()
+}
 const params = new URLSearchParams(location.hash.slice(1))
 const fromHash = Number(params.get('s'))
 const start = Number.isFinite(fromHash) && fromHash >= 1 ? Math.min(STAGES.length - 1, Math.floor(fromHash) - 1) : 0
@@ -587,5 +673,6 @@ if (cam && cam.length === 6 && cam.every(Number.isFinite)) {
 }
 setModern(params.get('t') === 'today')
 if (params.has('film')) enterFilm(Number(params.get('film')), false)
+else if (!params.has('s') && !params.has('t')) enterFilm(0, !reducedMotion.matches)
 document.body.classList.add('ready')
 frame()
