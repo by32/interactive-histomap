@@ -56,6 +56,7 @@ interface Spot {
 
 export type Placement =
   | { kind: 'hidden' }
+  | { kind: 'coastal-column'; head: number; tail: number; abreast: number; f: number }
   | (Spot & {
       kind: 'block'
       /** direction the front rank faces, radians (0 = +z south, π/2 = +x east) */

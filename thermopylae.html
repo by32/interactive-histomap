@@ -62,6 +62,7 @@
 
     <section id="panel" aria-live="polite">
       <button id="panel-toggle" class="grip" title="Show or hide the narration" aria-label="Toggle narration"></button>
+      <button id="watch-film" class="film-entry">▶ Watch the night march <span>1 minute</span></button>
       <div class="stage">
         <div class="kicker-row">
           <span id="kicker" class="kicker"></span>
@@ -77,6 +78,34 @@
         <button id="auto" class="chip" title="Advance automatically (Space)">▶ auto</button>
       </nav>
       <p class="hint">drag to orbit · scroll to zoom · right-drag to pan · ← → steps</p>
+    </section>
+
+    <section id="cinema" aria-label="Animated night march" hidden>
+      <div class="film-heading">
+        <span id="film-kicker" class="kicker">Night of day two</span>
+        <button id="exit-film" class="chip">Back to walkthrough</button>
+      </div>
+      <div id="film-narration" aria-live="polite" aria-atomic="true">
+        <h2 id="film-title">A way around the gates</h2>
+        <p id="film-caption"></p>
+      </div>
+      <nav id="film-chapters" aria-label="Film chapters"></nav>
+      <div class="film-transport">
+        <button id="film-play" class="chip on" aria-label="Play film">▶ Play</button>
+        <button id="film-replay" class="chip" aria-label="Replay film">↺ Replay</button>
+        <output id="film-time" aria-label="Playback time">0:00 / 1:00</output>
+        <label class="speed-label">Speed
+          <select id="film-speed" aria-label="Playback speed">
+            <option value="0.5">0.5×</option>
+            <option value="1" selected>1×</option>
+            <option value="1.5">1.5×</option>
+            <option value="2">2×</option>
+          </select>
+        </label>
+        <button id="film-follow" class="chip on" aria-pressed="true">Follow camera</button>
+      </div>
+      <input id="film-scrub" type="range" min="0" max="60" value="0" step="0.1" aria-label="Film position" />
+      <p class="film-note">Time compressed · schematic reconstruction · drag the scene to pause and explore</p>
     </section>
 
     <script type="module" src="/src/thermopylae/main.ts"></script>

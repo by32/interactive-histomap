@@ -56,6 +56,22 @@ are Herodotus' where the narration says so and modern estimates otherwise. All o
 stated in the page's legend. Source lives in `src/thermopylae/` (`terrain.ts` is the
 heightfield, `script.ts` the steps and narration, `units.ts` the armies).
 
+**Watch the night march** opens a 60-second animated sequence, from the Immortals' climb
+through the Phocians' retreat at dawn to the allies' withdrawal. Five chapters combine
+short captions, directed camera moves, continuous marching and night-to-day lighting.
+Play/pause, scrub, replay, select 0.5–2× speed or drag the scene to pause and explore;
+**Follow camera** rejoins the directed view. Arrow keys seek five seconds, Home/End seek
+the endpoints, Space plays/pauses and Escape returns to the walkthrough. Shared links
+such as `thermopylae.html#s=9&film=42` open paused at that moment. Reduced-motion settings
+start with a stationary overview and free camera. The contemporary terrain remains
+available in the walkthrough and its previous setting is restored when leaving the film.
+
+The film compresses historical time; troop routes and choreography are schematic, not
+exact reconstructions of individual movements. Captions follow the existing walkthrough;
+there is no recorded voice track. `film.ts` holds the authored tracks, `timeline.ts` the
+shared seekable clock. `npm run test:film` checks time controls, deterministic rewinding,
+troop grounding and returning to the walkthrough, without starting a browser.
+
 ## Development
 
 ```sh
