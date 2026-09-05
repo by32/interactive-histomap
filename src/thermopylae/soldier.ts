@@ -79,8 +79,12 @@ export function soldierGeometry(group: GroupDef, detailed = false) {
       add(new THREE.CircleGeometry(0.32, 24).translate(-0.34, 1.14, 0.403), 0x6d3928, -2)
     }
     const spear = cylinder(0.018, 0.022, 2.42, 0, 0, 0).rotateX(-0.15).translate(0.36, 1.55, 0.08)
-    add(spear, 0x6b4d2e, 2)
-    add(new THREE.ConeGeometry(0.047, 0.22, 4).rotateX(-0.15).translate(0.36, 2.85, -0.11), 0x93958d, 2, 0.8)
+    add(spear, 0x6b4d2e, 3)
+    add(new THREE.ConeGeometry(0.047, 0.22, 4).rotateX(-0.15).translate(0.36, 2.85, -0.11), 0x93958d, 3, 0.8)
+    // The short blade is drawn only in the final fighting, when spears break.
+    add(new THREE.BoxGeometry(.065,.55,.028).translate(.36,1.47,.10),0xb1b4aa,4,.85)
+    add(new THREE.ConeGeometry(.044,.12,4).translate(.36,1.80,.10),0xb1b4aa,4,.85)
+    add(new THREE.BoxGeometry(.13,.04,.05).translate(.36,1.19,.10),BRONZE,4,.7)
     if (detailed) add(new THREE.BoxGeometry(0.05, 0.52, 0.07).rotateZ(-0.25).translate(0.22, 0.88, -0.10), LEATHER)
   } else {
     // Soft tiara with an ear/neck flap, long sleeves, trousers and bow case.
@@ -90,8 +94,8 @@ export function soldierGeometry(group: GroupDef, detailed = false) {
     add(cylinder(0.08, 0.07, 0.58, 0.22, 1.27, -0.21), LEATHER)
     const wicker = new THREE.BoxGeometry(0.46, 0.92, 0.055).translate(-0.30, 0.93, 0.32)
     add(wicker, 0xa78a50, -2)
-    add(cylinder(0.017, 0.021, 1.80, 0.35, 1.37, 0.055), 0x785534, 2)
-    add(new THREE.ConeGeometry(0.039, 0.16, 4).translate(0.35, 2.35, 0.055), 0x95928a, 2, 0.7)
+    add(cylinder(0.017, 0.021, 1.80, 0.35, 1.37, 0.055), 0x785534, 3)
+    add(new THREE.ConeGeometry(0.039, 0.16, 4).translate(0.35, 2.35, 0.055), 0x95928a, 3, 0.7)
     if (detailed) {
       for (let row = 0; row < 12; row++) {
         add(new THREE.BoxGeometry(0.47, 0.021, 0.017).translate(-0.30, 0.51 + row * 0.073, 0.357), 0xc4aa6e, -2)
@@ -114,38 +118,65 @@ export function soldierGeometry(group: GroupDef, detailed = false) {
   return merged
 }
 
-/** Shared rig for walking, breathing and the different reflectance of bronze and cloth. */
-export function soldierMaterial(time: { value: number }) {
-  const material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.83, metalness: 0.1 })
-  material.onBeforeCompile = (shader) => {
-    shader.uniforms.marchTime = time
-    shader.vertexShader = shader.vertexShader.replace('#include <common>', `#include <common>
+/** The colour pass and shadow pass use exactly the same joint deformation. */
+function rigShader(vertex: string) {
+    vertex = vertex.replace('#include <common>', `#include <common>
       attribute float gait;
       attribute float metal;
       attribute vec2 motion;
+      attribute vec4 battle;
       varying float vMetal;
       uniform float marchTime;
       mat2 joint(float a) { return mat2(cos(a), -sin(a), sin(a), cos(a)); }
       float jointAngle() {
         float stride = sin(marchTime * 6.2 + motion.x);
+        float strike = .5 + .5 * sin(marchTime * 3.8 + motion.x);
+        if (gait > 2.5) return -(1.35 + .20 * strike) * battle.x - .50 * battle.w;
+        if (gait == 2.0) return -.52 * battle.x - .2 * strike * battle.x + 1.7 * battle.z;
+        if (gait == -2.0) return -.16 * battle.x + 1.7 * battle.z;
         return abs(gait) < 1.5 ? stride * gait * .42 * motion.y : -stride * sign(gait) * .12 * motion.y;
       }`)
-    shader.vertexShader = shader.vertexShader.replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>
-      if (gait != 0.0) objectNormal.yz = joint(jointAngle()) * objectNormal.yz;`)
-    shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+    vertex = vertex.replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>
+      if (gait != 0.0) objectNormal.yz = joint(jointAngle()) * objectNormal.yz;
+      objectNormal.yz = joint(battle.y * 1.50) * objectNormal.yz;`)
+    vertex = vertex.replace('#include <begin_vertex>', `#include <begin_vertex>
       vMetal = metal;
+      if (gait > 2.5) {
+        vec3 hand = vec3(.576,1.78,.12);
+        float visibleWeapon = gait > 3.5 ? battle.w : 1.0 - battle.w;
+        transformed = hand + (transformed - hand) * visibleWeapon * (1.0-battle.z);
+      }
       if (gait != 0.0) {
-        float pivot = abs(gait) < 1.5 ? 1.25 : 2.12;
+        float pivot = abs(gait) < 1.5 ? 1.25 : gait > 2.5 ? 1.78 : 2.12;
         transformed.y -= pivot;
         transformed.yz = joint(jointAngle()) * transformed.yz;
         transformed.y += pivot;
       }
       transformed.y += (1.0 - cos(marchTime * 12.4 + motion.x * 2.0)) * .035 * motion.y;
-      transformed.z += sin(marchTime * 1.5 + motion.x) * .009 * smoothstep(.9, 2.4, position.y);`)
+      transformed.z += sin(marchTime * 1.5 + motion.x) * .009 * smoothstep(.9, 2.4, position.y) * (1.0-battle.y);
+      transformed.z += sin(marchTime * 3.8 + motion.x) * .10 * battle.x;
+      transformed.yz = joint(battle.y * 1.50) * transformed.yz;
+      transformed.y += battle.y * .3;`)
+    return vertex
+}
+
+export function soldierDepthMaterial(time: {value:number}) {
+  const material=new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking})
+  material.onBeforeCompile=shader=>{shader.uniforms.marchTime=time;shader.vertexShader=rigShader(shader.vertexShader)}
+  material.customProgramCacheKey=()=> 'thermopylae-battle-depth-v3'
+  return material
+}
+
+/** Walking, combat poses and the different reflectance of bronze and cloth. */
+export function soldierMaterial(time: { value: number }) {
+  const material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.83, metalness: 0.1 })
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms.marchTime = time
+    shader.vertexShader = rigShader(shader.vertexShader)
     shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vMetal;')
     shader.fragmentShader = shader.fragmentShader.replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(.89, .38, vMetal);')
     shader.fragmentShader = shader.fragmentShader.replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = vMetal;')
   }
-  material.customProgramCacheKey = () => 'thermopylae-articulated-v2'
+  material.customProgramCacheKey = () => 'thermopylae-battle-v3'
   return material
 }

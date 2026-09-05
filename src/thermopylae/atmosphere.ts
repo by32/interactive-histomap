@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { heightAt, shoreline, EXTENT } from './terrain'
+import { heightAt, shoreline, modernShore, EXTENT } from './terrain'
 import type { LightPreset } from './scene'
 
 const noise = `
@@ -37,59 +37,64 @@ export function limestoneMaterial(vertexColors = true) {
 
 export function flowingWater() {
   const time = { value: 0 }
-  const material = new THREE.MeshStandardMaterial({ color: 0x28736e, roughness: 0.27, metalness: 0.35, transparent: true, opacity: 0.86 })
+  const modern = { value: 0 }
+  // Store both coastlines in one linearly filtered, 16-bit-per-coast texture.
+  // Foam belongs to the water shader: no almost-coplanar transparent overlay.
+  const samples = 2048
+  const data = new Uint8Array(samples * 4)
+  for (let i = 0; i < samples; i++) {
+    const x = EXTENT.xMin + i / (samples - 1) * (EXTENT.xMax - EXTENT.xMin)
+    for (const [j, coast] of [shoreline(x), modernShore(x)].entries()) {
+      const value = Math.round((coast + 6000) / 9000 * 65535)
+      data[i * 4 + j * 2] = value >> 8
+      data[i * 4 + j * 2 + 1] = value & 255
+    }
+  }
+  const coastMap = new THREE.DataTexture(data, samples, 1, THREE.RGBAFormat)
+  coastMap.minFilter = coastMap.magFilter = THREE.LinearFilter
+  coastMap.needsUpdate = true
+  const material = new THREE.MeshStandardMaterial({ color: 0x28736e, roughness: 0.48, metalness: 0.12 })
   material.onBeforeCompile = (shader) => {
     shader.uniforms.waterTime = time
+    shader.uniforms.coastMap = { value: coastMap }
+    shader.uniforms.modernCoast = modern
     shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWater;')
     shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvWater = (modelMatrix * vec4(position,1.0)).xyz;')
     shader.fragmentShader = shader.fragmentShader.replace('#include <common>', `#include <common>
       varying vec3 vWater;
       uniform float waterTime;
+      uniform sampler2D coastMap;
+      uniform float modernCoast;
+      // Average away ripples smaller than a pixel rather than letting specular
+      // highlights shimmer as the camera or adaptive pixel ratio changes.
+      float filteredCos(float phase) { return cos(phase) * (1.0 - smoothstep(.7, 3.0, fwidth(phase))); }
     `)
     shader.fragmentShader = shader.fragmentShader.replace('#include <normal_fragment_begin>', `#include <normal_fragment_begin>
       vec2 p = vWater.xz;
       float t = waterTime;
-      float waveX = cos(p.x*.14 + p.y*.07 + t*.7)*.045 + cos(p.x*.63-p.y*.21+t*1.2)*.025;
-      float waveZ = cos(p.y*.18-p.x*.04+t*.6)*.038 + cos(p.y*.49+p.x*.29-t*.9)*.021;
+      float waveX = filteredCos(p.x*.14 + p.y*.07 + t*.7)*.027 + filteredCos(p.x*.63-p.y*.21+t*1.2)*.012;
+      float waveZ = filteredCos(p.y*.18-p.x*.04+t*.6)*.024 + filteredCos(p.y*.49+p.x*.29-t*.9)*.010;
       normal = normalize((viewMatrix * vec4(-waveX, 1.0, -waveZ, 0.0)).xyz);
     `)
     shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
-      float ripple = sin(vWater.x*.18+vWater.z*.11+waterTime*.8)*sin(vWater.z*.22-waterTime*.6);
-      diffuseColor.rgb *= .94 + .06 * ripple;
+      float coastU = clamp((vWater.x + 3600.0) / 6600.0, 0.0, 1.0);
+      vec4 encoded = texture2D(coastMap, vec2((coastU * 2047.0 + .5) / 2048.0, .5));
+      vec2 pair = mix(encoded.rg, encoded.ba, modernCoast);
+      float coastZ = dot(pair, vec2(256.0, 1.0)) * (255.0 / 65535.0) * 9000.0 - 6000.0;
+      float offshore = coastZ - vWater.z;
+      float footprint = max(1.0, fwidth(offshore));
+      float shoreWidth = 4.5 + footprint;
+      float foam = (1.0 - smoothstep(1.5, shoreWidth, abs(offshore - 4.0))) * (4.5 / shoreWidth);
+      foam *= .30 + .06 * filteredCos(vWater.x * .055 + waterTime * .38);
+      float inMap = step(-3600.0, vWater.x) * step(vWater.x, 3000.0);
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.19,.40,.34), (1.0 - smoothstep(0.0,45.0,offshore)) * .35 * inMap);
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.64,.73,.63), foam * inMap);
     `)
   }
+  material.customProgramCacheKey = () => 'water-integrated-coast-v3'
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(60000, 60000).rotateX(-Math.PI / 2), material)
   mesh.name = 'sea'
-  return { mesh, time }
-}
-
-/** A thin irregular band of foam, located on the reconstructed ancient shoreline. */
-export function shorelineFoam() {
-  const n = 1100
-  const vertices = new Float32Array((n + 1) * 2 * 3)
-  const indices: number[] = []
-  for (let i = 0; i <= n; i++) {
-    const x = EXTENT.xMin + i / n * (EXTENT.xMax - EXTENT.xMin)
-    const z = shoreline(x) - 2
-    vertices.set([x, .15, z - 4.5, x, .18, z + 1.8], i * 6)
-    if (i < n) { const a = i * 2; indices.push(a,a+2,a+1,a+1,a+2,a+3) }
-  }
-  const g = new THREE.BufferGeometry()
-  g.setAttribute('position', new THREE.BufferAttribute(vertices, 3))
-  g.setIndex(indices)
-  const time = { value: 0 }
-  const m = new THREE.ShaderMaterial({
-    transparent: true, depthWrite: false, side: THREE.DoubleSide,
-    uniforms: { time },
-    vertexShader: 'varying vec3 vP; void main(){ vP=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
-    fragmentShader: `varying vec3 vP; uniform float time;
-      void main(){ float bands = sin(vP.x*.14 + vP.z*.23 + time*.7); float grain = fract(sin(dot(floor(vP.xz*1.6),vec2(12.9898,78.233)))*43758.5453);
-      gl_FragColor=vec4(.74,.85,.76,(.08+.12*bands)*grain);
-      #include <tonemapping_fragment>
-      #include <colorspace_fragment>
-      }`,
-  })
-  return { mesh: new THREE.Mesh(g,m), time }
+  return { mesh, time, modern }
 }
 
 /** Stars and sparse fireflies/embers are particles, not an image of the sky. */

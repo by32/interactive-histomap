@@ -93,16 +93,30 @@ export class AtlasRenderer {
       const mesh=scene.getObjectByName(g.id) as THREE.InstancedMesh|undefined
       if(!mesh?.count)continue
       const data=mesh.instanceMatrix.array
+      const battle=mesh.geometry.getAttribute('battle')
       ctx.fillStyle='#'+g.color.toString(16).padStart(6,'0')
       for(let i=0;i<mesh.count;i+=2) {
         const o=i*16
         if(data[o]===0&&data[o+5]===0)continue
+        ctx.globalAlpha=battle?1-battle.getY(i)*.8:1
         ctx.fillRect(px(data[o+12]),py(data[o+14]),Math.max(1.3,scale*5),Math.max(1.3,scale*5))
       }
+      ctx.globalAlpha=1
+    }
+    const arrows=scene.getObjectByName('battle-arrows') as THREE.InstancedMesh|undefined
+    if(arrows?.parent?.visible && arrows.count) {
+      ctx.strokeStyle='rgba(225,211,164,.65)';ctx.lineWidth=1
+      const a=arrows.instanceMatrix.array
+      ctx.beginPath()
+      for(let i=0;i<arrows.count;i+=3) {
+        const o=i*16,x=px(a[o+12]),y=py(a[o+14])
+        ctx.moveTo(x,y);ctx.lineTo(x+a[o+4]*5,y+a[o+6]*5)
+      }
+      ctx.stroke()
     }
     ctx.font='italic 17px Georgia';ctx.textAlign='center';ctx.fillStyle='#dce0ca'
     ctx.shadowColor='rgba(0,0,0,.8)';ctx.shadowBlur=5
-    for(const [label,x,z] of [['MALIAN GULF',-350,-1450],['Mount Kallidromo',-300,1850],['Anopaea path',-1400,1250],['West Gate',-2000,-220],['Middle Gate',30,shoreline(30)-65],['Alpeni',1950,-200]] as [string,number,number][]) {
+    for(const [label,x,z] of [['MALIAN GULF',-350,-1450],['Mount Kallidromo',-300,1850],['Anopaea path',-1400,1250],['West Gate',-2000,-220],['Middle Gate',30,shoreline(30)-65],['Kolonos',350,-20],['Alpeni',1950,-200]] as [string,number,number][]) {
       if(this.showLabels)ctx.fillText(label,px(x),py(z))
     }
     ctx.shadowBlur=0

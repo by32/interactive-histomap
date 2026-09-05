@@ -1,5 +1,5 @@
 /** Shared, seekable time. Rendering never depends on which frames came before. */
-export const FILM_DURATION = 60
+export const FILM_DURATION = 192
 export const clampTime = (time: number) => Number.isFinite(time) ? Math.max(0, Math.min(FILM_DURATION, time)) : 0
 export const smoothstep = (t: number) => t * t * (3 - 2 * t)
 

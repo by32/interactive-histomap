@@ -4,7 +4,8 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
-import { flowingWater, shorelineFoam, nightSky, focusLight, coastalRocks } from './atmosphere'
+import { flowingWater, nightSky, focusLight, coastalRocks } from './atmosphere'
+import { BattleEffects } from './battle'
 import { AtlasRenderer } from './atlas-renderer'
 import { setupEvidence } from './evidence'
 import './style.css'
@@ -45,12 +46,15 @@ renderer.toneMappingExposure = 1.08
 const scene = new THREE.Scene()
 scene.fog = new THREE.Fog(0xcdd9e4, 1800, 10500)
 
-const camera = new THREE.PerspectiveCamera(46, 1, .6, 50000)
+const camera = new THREE.PerspectiveCamera(46, 1, 2, 50000)
 let composer: EffectComposer | null = null
 if (gpu) {
   gpu.shadowMap.enabled = true
   gpu.shadowMap.type = THREE.PCFSoftShadowMap
-  composer = new EffectComposer(gpu)
+  // The composer renders offscreen, so renderer antialias alone cannot smooth
+  // the sea/terrain intersection. Multisample the actual scene target.
+  const target = new THREE.WebGLRenderTarget(1,1,{type:THREE.HalfFloatType,samples:Math.min(4,gpu.capabilities.maxSamples)})
+  composer = new EffectComposer(gpu,target)
   composer.addPass(new RenderPass(scene,camera))
   composer.addPass(new UnrealBloomPass(new THREE.Vector2(1,1),.19,.5,1.05))
   composer.addPass(new OutputPass())
@@ -92,9 +96,8 @@ let modern = false
 /** the ground under the current topography */
 let groundAt: (x: number, z: number) => number = heightAt
 const water = flowingWater()
-const foam = shorelineFoam()
 const stars = nightSky()
-scene.add(water.mesh, foam.mesh, stars.mesh)
+scene.add(water.mesh, stars.mesh)
 scene.add(coastalRocks())
 scene.add(buildForest())
 const camps = buildCamps()
@@ -105,6 +108,8 @@ const path = buildPath()
 scene.add(path)
 const armies = new Armies()
 scene.add(armies.root)
+const battleEffects = new BattleEffects()
+scene.add(battleEffects.root)
 const torchLights = Array.from({length:3}, () => new THREE.PointLight(0xffa34b,0,38,1.7))
 scene.add(...torchLights)
 const film = new FilmClock()
@@ -300,7 +305,7 @@ function setModern(on: boolean) {
   groundAt = on ? modernHeightAt : heightAt
   terrainAncient.visible = !on
   modernCoastGhost.visible = !on && !filmActive
-  foam.mesh.visible = !on
+  water.modern.value = on ? 1 : 0
   if (terrainModern) terrainModern.visible = on
   if (modernFeatures) modernFeatures.visible = on
   $('#topo-ancient').classList.toggle('on', !on)
@@ -384,17 +389,24 @@ window.addEventListener('hashchange', () => {
   setModern(params.get('t') === 'today')
 })
 
-/* ---------- one-minute film: one clock drives every layer ---------- */
+/* ---------- complete battle: one clock drives every layer ---------- */
 const filmPanel = $('#cinema')
 const scrub = $<HTMLInputElement>('#film-scrub')
 const playFilmBtn = $<HTMLButtonElement>('#film-play')
 const filmCamera = new FilmCamera()
+const formatTime = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds) % 60).padStart(2,'0')}`
+const chapterSelect = $<HTMLSelectElement>('#film-jump')
+scrub.max = String(FILM_DURATION)
 
 FILM_CHAPTERS.forEach((chapter, index) => {
   const button = document.createElement('button')
   button.textContent = chapter.label
   button.dataset.number = String(index+1).padStart(2, '0')
   button.title = `Jump to ${chapter.time} seconds: ${chapter.title}`
+  const option = document.createElement('option')
+  option.value = String(index)
+  option.textContent = `${String(index+1).padStart(2,'0')} · ${chapter.label}`
+  chapterSelect.appendChild(option)
   button.addEventListener('click', () => {
     film.playing = false
     film.seek(chapter.time)
@@ -403,6 +415,12 @@ FILM_CHAPTERS.forEach((chapter, index) => {
     renderFilm(true)
   })
   $('#film-chapters').appendChild(button)
+})
+chapterSelect.addEventListener('change', () => {
+  film.playing = false
+  film.seek(FILM_CHAPTERS[Number(chapterSelect.value)].time)
+  followCamera = !reducedMotion.matches
+  renderFilm(true)
 })
 
 function updateFilmControls() {
@@ -421,6 +439,7 @@ function renderFilm(force = false) {
   if (!force && renderedFilmTime === film.time) return
   renderedFilmTime = film.time
   armies.sampleFilm(film.time)
+  battleEffects.sample(film.time,true)
   const light = interval(LIGHT_KEYS, film.time)
   lerpPreset(LIGHTS[light.from.light], LIGHTS[light.to.light], smoothstep(light.progress), lightNow)
   applyLight(lightNow)
@@ -439,23 +458,31 @@ function renderFilm(force = false) {
       if (filmChapter >= 0 && followCamera) $('#shot-transition').animate([{ opacity: .96 }, { opacity: 0 }], { duration: 620, easing: 'ease-out' })
     }
     filmChapter = chapterIndex
-    $('#film-number').textContent = String(chapterIndex+1).padStart(2, '0')
+    $('#film-number').textContent = `${String(chapterIndex+1).padStart(2, '0')} / ${FILM_CHAPTERS.length}`
+    chapterSelect.value = String(chapterIndex)
     updateEvidence(chapter.stage)
     $('#film-kicker').textContent = STAGES[chapter.stage].kicker
     $('#film-title').textContent = chapter.title
     $('#film-caption').textContent = chapter.caption
+    const source = $<HTMLAnchorElement>('#film-source')
+    source.href = `https://lexundria.com/hdt/${chapter.source}/mcly`
+    source.textContent = `Herodotus ${chapter.source} ↗`
     Array.from($('#film-chapters').children).forEach((el, i) => {
       if (i === chapterIndex) el.setAttribute('aria-current', 'step')
       else el.removeAttribute('aria-current')
     })
     document.body.dataset.stage = STAGES[chapter.stage].id
+    document.body.dataset.chapter = chapter.id
+    const activeButton = $('#film-chapters').children[chapterIndex] as HTMLElement
+    const chapterNav = $('#film-chapters')
+    chapterNav.scrollLeft = Math.max(0,activeButton.offsetLeft-chapterNav.offsetLeft-chapterNav.clientWidth/2+activeButton.clientWidth/2)
   }
   scrub.value = String(film.time)
   scrub.style.setProperty('--progress', `${film.time / FILM_DURATION * 100}%`)
   const seconds = Math.floor(film.time)
   const stamp = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
-  $('#film-time').textContent = `${stamp} / 1:00`
-  scrub.setAttribute('aria-valuetext', `${stamp} of 1:00, ${chapter.label}`)
+  $('#film-time').textContent = `${stamp} / ${formatTime(FILM_DURATION)}`
+  scrub.setAttribute('aria-valuetext', `${stamp} of ${formatTime(FILM_DURATION)}, ${chapter.label}`)
   if (force || hashSecond !== seconds) {
     hashSecond = seconds
     const params = new URLSearchParams(location.hash.slice(1))
@@ -493,8 +520,8 @@ function enterFilm(time = 0, play = true) {
   material.opacity = .55
   // Reduced-motion mode uses the existing overview while the viewer controls the camera.
   if (!followCamera) {
-    resolve(STAGES[6].camera.pos, camera.position)
-    resolve(STAGES[6].camera.target, controls.target)
+    resolve(STAGES[0].camera.pos, camera.position)
+    resolve(STAGES[0].camera.target, controls.target)
     controls.update()
   }
   renderFilm(true)
@@ -504,10 +531,12 @@ function exitFilm() {
   const stage = FILM_CHAPTERS[Math.max(0, filmChapter)].stage
   filmActive = false
   film.playing = false
+  battleEffects.sample(0,false)
   filmPanel.hidden = true
   $('#panel').hidden = false
   delete document.body.dataset.mode
   delete document.body.dataset.playing
+  delete document.body.dataset.chapter
   controls.enableDamping = true
   const params = new URLSearchParams(location.hash.slice(1))
   params.delete('film')
@@ -580,7 +609,7 @@ function frame() {
   resize()
   if (!reducedMotion.matches) environmentTime += dt
   const time = filmActive ? film.time : environmentTime
-  water.time.value = foam.time.value = time
+  water.time.value = time
 
   if (camK < 1) {
     camK = Math.min(1, camK + dt / CAM_S)
