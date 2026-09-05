@@ -56,18 +56,19 @@ are Herodotus' where the narration says so and modern estimates otherwise. All o
 stated in the page's legend. Source lives in `src/thermopylae/` (`terrain.ts` is the
 heightfield, `script.ts` the steps and narration, `units.ts` the armies).
 
-**Watch the night march** opens a 60-second animated sequence, from the Immortals' climb
-through the Phocians' retreat at dawn to the allies' withdrawal. Five chapters combine
-short captions, directed camera moves, continuous marching and night-to-day lighting.
+**Watch the whole battle** opens a 192-second film in fourteen chapters. It covers the first
+two days of assaults, the night march, the allies' withdrawal, the final advance, Leonidas's
+death, the retreat to Kolonos, the missile volleys and the Persian victory. Directed shots,
+articulated combat, marching, falling defenders and changing light share one seekable clock.
 Play/pause, scrub, replay, select 0.5–2× speed or drag the scene to pause and explore;
 **Follow camera** rejoins the directed view. Arrow keys seek five seconds, Home/End seek
 the endpoints, Space plays/pauses and Escape returns to the walkthrough. Shared links
-such as `thermopylae.html#s=9&film=42` open paused at that moment. Reduced-motion settings
+such as `thermopylae.html#s=10&film=164` open paused at that moment. Reduced-motion settings
 start with a stationary overview and free camera. The contemporary terrain remains
 available in the walkthrough and its previous setting is restored when leaving the film.
 
 The film compresses historical time; troop routes and choreography are schematic, not
-exact reconstructions of individual movements. Captions follow the existing walkthrough;
+exact reconstructions of individual movements. Each caption links to its passage in Herodotus;
 there is no recorded voice track. `film.ts` holds the authored tracks, `timeline.ts` the
 shared seekable clock. `npm run test:film` checks time controls, deterministic rewinding,
 troop grounding and returning to the walkthrough, without starting a browser.
@@ -130,8 +131,8 @@ Settings → Pages → Source: *GitHub Actions*).
 
 ### Thermopylae visual reconstruction
 
-The Thermopylae page now opens on a five-shot night-march sequence. Chapter cuts compress the overnight journey while each close tracking shot keeps the troops moving at walking speed. The original eleven-step walkthrough and ancient/modern coast comparison remain available.
+The Thermopylae page opens on the complete three-day battle in fourteen shots. Chapter cuts compress elapsed historical time while each close tracking shot keeps the troops moving at walking speed. The original eleven-step walkthrough and ancient/modern coast comparison remain available.
 
-The landscape uses world-space limestone detail, moving water and shore foam, soft shadows, a sky with atmospheric sunlight, and night-time torch lighting. Near the camera, detailed Greek and Persian models replace distant figures; the rig animates legs and equipment. On devices without WebGL, an animated shaded-relief atlas preserves the story, playback controls and evidence gallery.
+The landscape uses world-space limestone detail, water with integrated, filtered shoreline foam, multisampled scene edges, soft shadows, a sky with atmospheric sunlight, and night-time torch lighting. Near the camera, detailed Greek and Persian models replace distant figures; the colour and shadow rigs animate legs, thrusting spears, drawn swords, surrender and falling figures. Final-stand groups face outwards, with opposing Persian formations on either side. Losses are illustrative, not numerical casualty estimates. On devices without WebGL, an animated shaded-relief atlas preserves the story, playback controls and evidence gallery.
 
 The **Art & evidence** gallery contains institution-supplied photographs of an early-fifth-century Corinthian helmet, an Attic Greek/Persian combat vase (ca. 480–470 BC), and the Susa archer frieze (522–486 BC). Museum records, original image URLs and reuse details are in `public/art/thermopylae/sources.json`. Met images are CC0; the Susa photograph is public domain. The objects inform the visual reconstruction and are not claimed as finds from Thermopylae. Formation colours, figure scale and the schematic geography are explained on the page.

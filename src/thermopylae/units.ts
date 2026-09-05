@@ -1,7 +1,8 @@
 import * as THREE from 'three'
-import { soldierGeometry, soldierMaterial } from './soldier'
+import { soldierGeometry, soldierMaterial, soldierDepthMaterial } from './soldier'
+import { battlePose } from './battle'
 import { softenPoints } from './atmosphere'
-import { heightAt, stripZ, clampToStrip, ANOPAEA_XZ } from './terrain'
+import { heightAt, stripZ, clampToStrip, shoreline, ANOPAEA_XZ } from './terrain'
 import { GROUPS, type GroupDef, type Placement } from './script'
 import { interval } from './timeline'
 import type { UnitKeyframe } from './film'
@@ -104,12 +105,11 @@ function layoutFor(group: GroupDef, p: Placement, seed: number): Layout {
       return { data, visible: true, onStrip }
     case 'ring':
       for (let i = 0; i < n; i++) {
-        const a = rnd() * Math.PI * 2
+        const a = (p.startAngle ?? 0) + rnd() * ((p.endAngle ?? Math.PI * 2) - (p.startAngle ?? 0))
         const r = p.rMin + Math.sqrt(rnd()) * (p.rMax - p.rMin)
         const x = p.x + Math.cos(a) * r
-        const z = cz + Math.sin(a) * r
-        // face the centre (heading 0 = +z)
-        set(i, x, z, Math.atan2(p.x - x, cz - z))
+        const z = Math.max(shoreline(x) + 4, cz + Math.sin(a) * r)
+        set(i, x, z, Math.atan2(p.x - x, cz - z) + (p.facing === 'out' ? Math.PI : 0))
       }
       return { data, visible: true, onStrip }
     case 'coastal-column': {
@@ -195,6 +195,7 @@ export class Armies {
 
   constructor() {
     this.material = soldierMaterial(this.marchTime)
+    const depthMaterial = soldierDepthMaterial(this.marchTime)
     const immortals = GROUPS.find((g) => g.id === 'immortals')!
     const tg = new THREE.BufferGeometry()
     tg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(immortals.count * 3), 3))
@@ -216,6 +217,7 @@ export class Armies {
       const motion = new Float32Array(def.count * 2)
       for (let i = 0; i < def.count; i++) motion[i * 2] = i * 2.399963
       geom.setAttribute('motion', new THREE.InstancedBufferAttribute(motion, 2))
+      geom.setAttribute('battle', new THREE.InstancedBufferAttribute(new Float32Array(def.count * 4), 4))
       const mesh = new THREE.InstancedMesh(geom, this.material, def.count)
       mesh.frustumCulled = false
       mesh.name = def.id
@@ -223,11 +225,13 @@ export class Armies {
       const hidden = layoutFor(def, { kind: 'hidden' }, seed)
       const detailGeometry = soldierGeometry(def, true)
       detailGeometry.setAttribute('motion', new THREE.InstancedBufferAttribute(new Float32Array(96 * 2), 2))
+      detailGeometry.setAttribute('battle', new THREE.InstancedBufferAttribute(new Float32Array(96 * 4), 4))
       const detail = new THREE.InstancedMesh(detailGeometry, this.material, 96)
       detail.name = def.id + '-detail'
       detail.count = 0
       detail.frustumCulled = false
       detail.castShadow = detail.receiveShadow = true
+      detail.customDepthMaterial = depthMaterial
       mesh.receiveShadow = true
       this.root.add(detail)
       this.armies.push({ def, mesh, from: hidden, to: hidden, seed, detail, matrices: new Float32Array(def.count * 16) })
@@ -325,14 +329,17 @@ export class Armies {
       nearest.sort((a,b) => a.d-b.d)
       const src = mesh.geometry.getAttribute('motion')
       const dst = detail.geometry.getAttribute('motion') as THREE.InstancedBufferAttribute
+      const srcBattle = mesh.geometry.getAttribute('battle')
+      const dstBattle = detail.geometry.getAttribute('battle') as THREE.InstancedBufferAttribute
       for (const { i } of nearest.slice(0, 96)) {
         const j = detail.count++
         matrix.fromArray(matrices, i * 16)
         detail.setMatrixAt(j, matrix)
         dst.setXY(j, src.getX(i), src.getY(i))
+        dstBattle.setXYZW(j,srcBattle.getX(i),srcBattle.getY(i),srcBattle.getZ(i),srcBattle.getW(i))
         mesh.setMatrixAt(i, hidden)
       }
-      dst.needsUpdate = detail.instanceMatrix.needsUpdate = mesh.instanceMatrix.needsUpdate = true
+      dstBattle.needsUpdate = dst.needsUpdate = detail.instanceMatrix.needsUpdate = mesh.instanceMatrix.needsUpdate = true
     }
   }
 
@@ -343,9 +350,11 @@ export class Armies {
     const pos = new THREE.Vector3()
     const scl = new THREE.Vector3()
     const up = new THREE.Vector3(0, 1, 0)
+    const pose = new THREE.Vector4()
     for (const a of this.armies) {
       const { from, to, mesh } = a
       const motion = mesh.geometry.getAttribute('motion') as THREE.InstancedBufferAttribute
+      const battle = mesh.geometry.getAttribute('battle') as THREE.InstancedBufferAttribute
       const n = a.def.count
       const fromS = from.visible ? 1 : 0
       const toS = to.visible ? 1 : 0
@@ -357,6 +366,16 @@ export class Armies {
       } : null
       if (s <= 0.001 && !to.visible) {
         mesh.count = 0
+        mesh.instanceMatrix.array.fill(0)
+        a.matrices.fill(0)
+        battle.array.fill(0)
+        for(let i=0;i<n;i++)motion.setY(i,0)
+        battle.needsUpdate = motion.needsUpdate = true
+        if(a.def.id==='immortals') {
+          const torches=this.torches.geometry.getAttribute('position') as THREE.BufferAttribute
+          for(let i=0;i<n;i++)torches.setXYZ(i,0,-5000,0)
+          torches.needsUpdate=true
+        }
         mesh.instanceMatrix.needsUpdate = true
         continue
       }
@@ -391,8 +410,11 @@ export class Armies {
             pos.y = heightAt(pos.x, pos.z)
           }
         }
-        const moving = this.filmProgress !== null ? from !== to : (k < 1 || Boolean(to.march))
-        motion.setY(i, moving && from.visible && to.visible ? 1 : 0)
+        if(this.filmProgress!==null)battlePose(this.marchTime.value,a.def.id,i,pos.x,pose)
+        else pose.set(0,0,0,0)
+        battle.setXYZW(i,pose.x,pose.y,pose.z,pose.w)
+        const moving = this.filmProgress !== null ? Math.hypot(tx-fx,tz-fz)>.1 : (k < 1 || Boolean(to.march))
+        motion.setY(i, moving && from.visible && to.visible ? (1-pose.y)*(1-pose.z)*(1-pose.x*.8) : 0)
         // shortest-way heading interpolation
         q.setFromAxisAngle(up, heading)
         scl.setScalar(s)
@@ -409,6 +431,7 @@ export class Armies {
       a.matrices.set(mesh.instanceMatrix.array)
       mesh.instanceMatrix.needsUpdate = true
       motion.needsUpdate = true
+      battle.needsUpdate = true
     }
   }
 }

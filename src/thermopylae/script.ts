@@ -39,7 +39,7 @@ export const GROUPS: GroupDef[] = [
     color: 0xb9752f,
     count: 6000,
   },
-  { id: 'medes', label: 'Medes & Cissians — ~10,000', side: 'persian', color: 0xd6a03c, count: 2000 },
+  { id: 'medes', label: 'Medes & Cissians — schematic 10,000 shown', side: 'persian', color: 0xd6a03c, count: 2000 },
   { id: 'immortals', label: 'The Immortals — 10,000', side: 'persian', color: 0x6a3d9e, count: 2000 },
 ]
 
@@ -65,7 +65,7 @@ export type Placement =
       spacing?: number
     })
   | (Spot & { kind: 'scatter'; rx: number; rz: number })
-  | (Spot & { kind: 'ring'; rMin: number; rMax: number })
+  | (Spot & { kind: 'ring'; rMin: number; rMax: number; facing?: 'in' | 'out'; startAngle?: number; endAngle?: number })
   | {
       kind: 'column'
       /** fraction of the Anopaea path covered by the head and tail of the column */
@@ -155,7 +155,7 @@ export const STAGES: Stage[] = [
     kicker: 'The Greek position',
     title: 'The Middle Gate and the Phocian Wall',
     text:
-      'Leonidas holds the middle gate, where Herodotus says the track is a single wagon-width. The Phocians had once built a wall here against Thessalian raids; the Greeks rebuild it and pitch camp behind. Roughly 7,000 hoplites: 300 Spartans, each chosen because he had a living son; 700 Thespians; 400 Thebans; some 2,800 other Peloponnesians; the Opuntian Locrians in full force; and 1,000 Phocians, posted on the mountain. The hot springs bubble a few hundred paces to the west.',
+      'Leonidas holds the middle gate. Herodotus describes even tighter, wagon-width approaches elsewhere along the pass. The Phocians had once built a wall here against Thessalian raids; the Greeks rebuild it and pitch camp behind. Roughly 7,000 hoplites: 300 Spartans, each chosen because he had a living son; 700 Thespians; 400 Thebans; some 2,800 other Peloponnesians; the Opuntian Locrians in full force; and 1,000 Phocians, posted on the mountain. The hot springs bubble a few hundred paces to the west.',
     camera: { pos: [-150, -450, 45], target: [50, -285, 5] },
     light: 'day',
     units: { ...greeksAtWall, ...persianCamp },
@@ -184,7 +184,7 @@ export const STAGES: Stage[] = [
     kicker: 'Day one, afternoon',
     title: 'The Immortals fare no better',
     text:
-      'Xerxes sends in the Immortals: Hydarnes’ 10,000, the royal guard, so called because a fallen man was replaced at once. In the gate their wicker shields and short spears are no use, and the phalanx holds. Watching from a throne set on the slope, the king is said to have leapt to his feet three times in fear for his army.',
+      'Xerxes sends in the Immortals: Hydarnes’ 10,000, the royal guard, so called because a fallen man was replaced at once. In the gate their shorter spears and restricted frontage put them at a disadvantage, and the phalanx holds. Watching from a throne set on the slope, the king is said to have leapt to his feet three times in fear for his army.',
     camera: { pos: [-380, -440, 38], target: [-170, -280, 6] },
     light: 'day',
     units: {
@@ -272,15 +272,15 @@ export const STAGES: Stage[] = [
   },
   {
     id: 'last-stand',
-    kicker: 'Midday, day three',
+    kicker: 'The final fighting · day three',
     title: 'The last stand on Kolonos hill',
     text:
-      'Knowing the end, the Greeks advance past the wall into the wider ground and fight Xerxes’ frontal assault until their spears splinter. Persian officers drive their men on with whips; many are trampled, or forced into the sea. Leonidas falls, and four times the Spartans recover his body. When the Immortals appear at their backs the survivors retreat to this mound and fight with swords, then hands and teeth, until the Persians, Herodotus writes, <em>buried them under missiles</em>. The Thebans surrender. Xerxes has Leonidas’ head cut off and his body impaled.',
+      'Knowing the end, the Greeks advance past the wall into the wider ground and fight Xerxes’ frontal assault until their spears splinter. Persian officers drive their men on with whips; many are trampled, or forced into the sea. Leonidas falls. The Greeks recover his body and, Herodotus says, drive back the attackers four times. When the Immortals appear at their backs the survivors retreat to this mound and fight with swords, then hands and teeth, until the Persians, Herodotus writes, <em>buried them under missiles</em>. The Thebans surrender. Xerxes has Leonidas’ head cut off and his body impaled.',
     camera: { pos: [230, -430, 70], target: [350, -140, 12] },
     light: 'day',
     units: {
-      spartans: { kind: 'ring', x: 350, z: -125, rMin: 0, rMax: 26 },
-      thespians: { kind: 'ring', x: 350, z: -125, rMin: 18, rMax: 40 },
+      spartans: { kind: 'ring', x: 350, z: -125, rMin: 0, rMax: 26, facing: 'out' },
+      thespians: { kind: 'ring', x: 350, z: -125, rMin: 18, rMax: 40, facing: 'out' },
       thebans: { kind: 'scatter', x: 480, z: -190, rx: 40, rz: 22 },
       allies: HIDDEN,
       phocians: PHOCIAN_REFUGE,

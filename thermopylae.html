@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Explore Thermopylae in a cinematic 3D historical atlas, with an animated night march and surviving Greek and Persian artwork from the age of the battle."
+      content="Follow all three days of Thermopylae in an animated historical atlas, from the first assaults and the mountain march to the last stand, with surviving Greek and Persian artwork."
     />
     <meta property="og:title" content="Thermopylae, 480 BC — The Hot Gates" />
     <meta
@@ -72,7 +72,7 @@
 
     <section id="panel" aria-live="polite">
       <button id="panel-toggle" class="grip" title="Show or hide the narration" aria-label="Toggle narration"></button>
-      <button id="watch-film" class="film-entry"><span class="entry-play">▶</span><span class="entry-copy">Watch the night march<small>Five chapters · one minute</small></span><span class="entry-arrow">↗</span></button>
+      <button id="watch-film" class="film-entry"><span class="entry-play">▶</span><span class="entry-copy">Watch the whole battle<small>14 chapters · 3 minutes 12 seconds</small></span><span class="entry-arrow">↗</span></button>
       <div class="stage"><div class="chapter-line" aria-hidden="true"></div>
         <div class="kicker-row">
           <span id="kicker" class="kicker"></span>
@@ -90,20 +90,21 @@
       <p class="hint">drag to orbit · scroll to zoom · right-drag to pan · ← → steps</p>
     </section>
 
-    <section id="cinema" aria-label="Animated night march" hidden>
+    <section id="cinema" aria-label="Animated battle of Thermopylae" hidden>
       <div class="film-heading">
-        <div class="film-chapter-heading"><span id="film-number">01</span><span id="film-kicker" class="kicker">Night of day two</span></div>
+        <div class="film-chapter-heading"><span id="film-number">01 / 14</span><span id="film-kicker" class="kicker">The Greek position</span></div>
         <button id="exit-film" class="chip">Back to walkthrough</button>
       </div>
       <div id="film-narration" aria-live="polite" aria-atomic="true">
-        <h2 id="film-title">A way around the gates</h2>
+        <h2 id="film-title">An army holds the narrow road</h2>
         <p id="film-caption"></p>
       </div>
       <nav id="film-chapters" aria-label="Film chapters"></nav>
+      <label class="chapter-picker">Chapter <select id="film-jump" aria-label="Choose a battle chapter"></select></label>
       <div class="film-transport">
         <button id="film-play" class="chip on" aria-label="Play film">▶ Play</button>
         <button id="film-replay" class="chip" aria-label="Replay film">↺ Replay</button>
-        <output id="film-time" aria-label="Playback time">0:00 / 1:00</output>
+        <output id="film-time" aria-label="Playback time">0:00 / 3:12</output>
         <label class="speed-label">Speed
           <select id="film-speed" aria-label="Playback speed">
             <option value="0.5">0.5×</option>
@@ -114,15 +115,15 @@
         </label>
         <button id="film-follow" class="chip on" aria-pressed="true">Follow camera</button>
       </div>
-      <input id="film-scrub" type="range" min="0" max="60" value="0" step="0.1" aria-label="Film position" />
-      <p class="film-note">Reconstructed from ancient accounts · drag to pause and explore</p>
+      <input id="film-scrub" type="range" min="0" max="192" value="0" step="0.1" aria-label="Film position" />
+      <p class="film-note"><a id="film-source" href="https://lexundria.com/hdt/7.176/mcly" target="_blank" rel="noopener">Herodotus 7.176 ↗</a><span> · movements and losses are schematic</span></p>
     </section>
 
     <dialog id="evidence-dialog" aria-labelledby="evidence-title">
       <div class="evidence-top"><div><p class="kicker">THE MATERIAL RECORD</p><h2 id="evidence-title">The art behind the reconstruction</h2></div><button id="evidence-close" class="chip" aria-label="Close evidence">Close ×</button></div>
       <p class="evidence-intro">Objects made in the world of Thermopylae. These surviving works inform the equipment and visual language of the scene.</p>
       <div id="evidence-gallery"></div>
-      <div class="reconstruction-note"><h3>Evidence and interpretation</h3><p>The Greek figures carry round shields, thrusting spears and Corinthian-type helmets. Persian figures wear sleeved tunics, trousers and soft caps, with wicker shields and bows, following <a href="https://lexundria.com/hdt/7.61/mcly" target="_blank" rel="noopener">Herodotus 7.61</a>. Colours distinguish armies; they are not known uniforms. The Susa archers are palace imagery, and the vase is not a documented scene of Thermopylae.</p><p>The mountain and ancient shore form a schematic reconstruction, not a surveyed landscape. The path’s exact course is debated. The animation compresses a night and morning into a minute; figure size and numbers are adjusted for legibility. <a href="https://classics.mit.edu/Herodotus/history.7.vii.html" target="_blank" rel="noopener">Read the ancient account ↗</a></p></div>
+      <div class="reconstruction-note"><h3>Evidence and interpretation</h3><p>The Greek figures carry round shields, thrusting spears and Corinthian-type helmets. Persian figures wear sleeved tunics, trousers and soft caps, with wicker shields and bows, following <a href="https://lexundria.com/hdt/7.61/mcly" target="_blank" rel="noopener">Herodotus 7.61</a>. Colours distinguish armies; they are not known uniforms. The Susa archers are palace imagery, and the vase is not a documented scene of Thermopylae.</p><p>The mountain and ancient shore form a schematic reconstruction, not a surveyed landscape. The path’s exact course is debated. Three days are compressed into 3 minutes 12 seconds. Cuts skip elapsed time; combat movements, figure sizes and losses are illustrative, not measured casualty counts.</p><p>The fighting follows <a href="https://lexundria.com/hdt/7.210/mcly" target="_blank" rel="noopener">Herodotus 7.210–212</a>; the final advance, death of Leonidas and retreat follow <a href="https://lexundria.com/hdt/7.223/mcly" target="_blank" rel="noopener">7.223–225</a>. His description of the Thebans’ motives is his interpretation; their separation and surrender are recounted in <a href="https://lexundria.com/hdt/7.233/mcly" target="_blank" rel="noopener">7.233</a>. The relief atlas and the 3D view use the same sequence.</p></div>
     </dialog>
     <script type="module" src="/src/thermopylae/main.ts"></script>
   </body>
