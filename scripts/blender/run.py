@@ -3,7 +3,7 @@
   .cache/blender-venv/bin/python scripts/blender/run.py <command> [options]
   blender -b --factory-startup -P scripts/blender/run.py -- <command> [options]
 
-Commands: selftest, models
+Commands: selftest, models, bake, stills, film
 """
 import os
 import sys
@@ -23,6 +23,18 @@ def main(argv):
         import selftest
 
         return selftest.main(rest)
+    if command == "film":
+        import film
+
+        return film.main(rest)
+    if command == "stills":
+        import stills
+
+        return stills.main(rest)
+    if command == "bake":
+        import bake
+
+        return bake.main(rest)
     if command == "models":
         import models
 

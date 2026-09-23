@@ -13,7 +13,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import * as THREE from 'three'
 import { EXTENT, heightAt, BEACH } from '../../src/thermopylae/terrain.ts'
-import { GROUPS, STAGES, CAMERA_FOV, FIGURE_SCALE } from '../../src/thermopylae/script.ts'
+import { GROUPS, STAGES, CAMERA_FOV, FIGURE_SCALE, STILL_SECONDS } from '../../src/thermopylae/script.ts'
 import {
   buildTerrain,
   buildForest,
@@ -28,6 +28,7 @@ import {
   type LightPreset,
 } from '../../src/thermopylae/scene.ts'
 import { Armies } from '../../src/thermopylae/units.ts'
+import { terrainFingerprint, stageFingerprint } from '../../src/thermopylae/fingerprint.ts'
 import { UNIT_KEYS, LIGHT_KEYS, FILM_CHAPTERS } from '../../src/thermopylae/film.ts'
 import { FilmCamera } from '../../src/thermopylae/film-camera.ts'
 import { BattleEffects } from '../../src/thermopylae/battle.ts'
@@ -40,8 +41,7 @@ const arg = (name: string, fallback?: string) => {
 }
 const OUT = arg('out', '.cache/thermopylae/scene')!
 const FPS = Number(arg('fps', '24'))
-/** seconds the page waits on a stage before a still is shown; columns march until then */
-export const STILL_T = 4
+const STILL_T = STILL_SECONDS
 
 mkdirSync(OUT, { recursive: true })
 const write = (name: string, data: Float32Array | Uint32Array) => {
@@ -103,6 +103,8 @@ function terrainEntry(modern: boolean) {
     rows,
     pos: write(`${name}.pos.f32`, pos),
     col: write(`${name}.col.f32`, Float32Array.from(g.attributes.color.array)),
+    uv: write(`${name}.uv.f32`, Float32Array.from(g.attributes.uv.array)),
+    fingerprint: terrainFingerprint(modern),
     idx: write(`${name}.idx.u32`, Uint32Array.from(g.index!.array)),
   }
 }
@@ -205,6 +207,33 @@ const scene: Record<string, unknown> = {
 
 scene.terrain = { ancient: terrainEntry(false), modern: terrainEntry(true) }
 
+// a coarse skirt of the same heightfield out to the horizon, for wide renders;
+// under the modelled extent it sinks out of sight beneath the detailed mesh
+function skirt() {
+  const step = 200
+  const [x0, x1, z0, z1] = [-18000, 16000, -16000, 16000]
+  const cols = (x1 - x0) / step + 1
+  const rows = (z1 - z0) / step + 1
+  const pos = new Float32Array(cols * rows * 3)
+  const inside = (x: number, z: number) => x > EXTENT.xMin + step && x < EXTENT.xMax - step && z > EXTENT.zMin + step && z < EXTENT.zMax - step
+  for (let j = 0; j < rows; j++)
+    for (let i = 0; i < cols; i++) {
+      const x = x0 + i * step
+      const z = z0 + j * step
+      pos.set([x, heightAt(x, z) - (inside(x, z) ? 40 : 0.3), z], (j * cols + i) * 3)
+    }
+  const idx = new Uint32Array((cols - 1) * (rows - 1) * 6)
+  let k = 0
+  for (let j = 0; j < rows - 1; j++)
+    for (let i = 0; i < cols - 1; i++) {
+      const a = j * cols + i
+      idx.set([a, a + cols, a + 1, a + 1, a + cols, a + cols + 1], k)
+      k += 6
+    }
+  return { cols, rows, pos: write('skirt.pos.f32', pos), idx: write('skirt.idx.u32', idx) }
+}
+scene.skirt = skirt()
+
 const forest = buildForest()
 const camps = buildCamps()
 const fires = camps.fires.geometry.getAttribute('position').array as Float32Array
@@ -232,6 +261,7 @@ scene.stages = STAGES.map((stage, i) => {
     id,
     stage: stage.id,
     title: stage.title,
+    fingerprint: stageFingerprint(stage),
     light: stage.light,
     path: Boolean(stage.path),
     camera: { pos, target },
@@ -285,7 +315,15 @@ if (range) {
     const torches = torchState(armies)
     torchOffsets[k] = torchFrames.length / 3
     for (const v of torches) torchFrames.push(v)
-    perFrame.push({ frame: f, time: +t.toFixed(4), light: lightJson(lightNow), torchGlow: +glow.toFixed(4), from: light.from.light, to: light.to.light })
+    perFrame.push({
+      frame: f,
+      time: +t.toFixed(4),
+      light: lightJson(lightNow),
+      torchGlow: +glow.toFixed(4),
+      from: light.from.light,
+      to: light.to.light,
+      blend: +smoothstep(light.progress).toFixed(5),
+    })
   }
   torchOffsets[count] = torchFrames.length / 3
   const tag = `film-${first}-${last}`

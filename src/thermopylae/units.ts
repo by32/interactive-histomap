@@ -192,6 +192,7 @@ export class Armies {
   private filmLayouts: Layout[][] = []
   private filmProgress: number | null = null
   private marchTime = { value: 0 }
+  private hold: number | null = null
 
   constructor() {
     this.material = soldierMaterial(this.marchTime)
@@ -319,10 +320,17 @@ export class Armies {
     this.torches.visible = v > 0.01
   }
 
+  /** Stop the clock of marching columns and walking at `seconds` after the step
+   * began (a rendered still shows that moment); null lets it run again. */
+  holdAt(seconds: number | null) {
+    this.hold = seconds
+  }
+
   update(dt: number) {
     const wasDone = this.progress >= 1
     this.progress = Math.min(1, this.progress + dt / TRANSITION_S)
     this.stageTime += dt
+    if (this.hold !== null) this.stageTime = Math.min(this.stageTime, this.hold)
     this.marchTime.value = this.stageTime
     let marching = false
     for (const a of this.armies) {

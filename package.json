@@ -16,7 +16,10 @@
     "export:scene": "node --experimental-strip-types --no-warnings --import ./scripts/thermopylae/ts-hook.mjs scripts/thermopylae/export-scene.mts",
     "setup:blender": "node scripts/thermopylae/blender.mjs --setup",
     "blender:selftest": "npm run export:scene && node scripts/thermopylae/blender.mjs selftest",
-    "build:models": "npm run export:scene && node scripts/thermopylae/blender.mjs models"
+    "build:models": "npm run export:scene && node scripts/thermopylae/blender.mjs models",
+    "bake:terrain": "npm run export:scene && node scripts/thermopylae/blender.mjs bake",
+    "render:stills": "npm run export:scene && node scripts/thermopylae/blender.mjs stills",
+    "encode:stills": "node scripts/thermopylae/encode-stills.mjs"
   },
   "dependencies": {
     "@types/three": "^0.185.4",
@@ -41,6 +44,7 @@
     "@vitejs/plugin-react": "^6.0.4",
     "mapshaper": "^0.7.55",
     "oxlint": "^1.75.0",
+    "sharp": "^0.35.4",
     "typescript": "~6.0.2",
     "vite": "^8.2.0"
   }

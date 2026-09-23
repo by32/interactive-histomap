@@ -10,8 +10,11 @@ import { AtlasRenderer } from './atlas-renderer'
 import { setupEvidence } from './evidence'
 import './style.css'
 import { heightAt, modernHeightAt } from './terrain'
-import { GROUPS, STAGES, LABELS, FIGURE_SCALE, CAMERA_FOV, type Stage } from './script'
+import { GROUPS, STAGES, LABELS, FIGURE_SCALE, CAMERA_FOV, STILL_SECONDS, type Stage } from './script'
 import { loadSoldierModels } from './models'
+import { applyBakedTerrain } from './baked'
+import { Cinematic } from './cinematic'
+import { setupRenderedFilm } from './rendered-film'
 import { Armies } from './units'
 import { FILM_CHAPTERS, LIGHT_KEYS, UNIT_KEYS } from './film'
 import { FilmCamera } from './film-camera'
@@ -88,6 +91,15 @@ const sky = buildSky()
 scene.add(sky.mesh)
 const terrainAncient = buildTerrain(false)
 scene.add(terrainAncient)
+/** drape the Blender-baked texture over a terrain mesh when one matches it */
+function bakeTerrain(mesh: THREE.Mesh, isModern: boolean) {
+  if (!gpu) return
+  applyBakedTerrain(mesh, isModern, gpu)
+    .then((ok) => { if (ok) document.body.dataset[isModern ? 'terrainToday' : 'terrain'] = 'baked' })
+    .catch((err) => console.warn('baked terrain unavailable', err))
+}
+document.body.dataset.terrain = 'vertex'
+bakeTerrain(terrainAncient, false)
 const modernCoastGhost = buildModernCoastGhost()
 scene.add(modernCoastGhost)
 // today's ground is built the first time it is asked for
@@ -110,6 +122,9 @@ scene.add(path)
 const armies = new Armies()
 scene.add(armies.root)
 // Blender-modelled soldiers replace the primitive figures once they arrive
+// Cycles stills of each step, crossfaded in once the live view settles on them
+const cinematic = new Cinematic($<HTMLPictureElement>('#still'))
+cinematic.enabled = new URLSearchParams(location.hash.slice(1)).get('c') !== '0'
 document.body.dataset.soldiers = 'primitive'
 loadSoldierModels(`${import.meta.env.BASE_URL}thermopylae/models/soldiers.glb`)
   .then((models) => {
@@ -187,12 +202,24 @@ function flyTo(stage: Stage) {
 // any pointer interaction hands the camera back to the viewer
 canvas.addEventListener('pointerdown', () => {
   camK = 1
+  leaveStill()
   exploreFilm()
 })
 canvas.addEventListener('wheel', () => {
   camK = 1
+  leaveStill()
   exploreFilm()
 }, { passive: true })
+/** the viewer moved the camera: back to the live view, and let columns march on */
+function leaveStill() {
+  cinematic.interrupt()
+  armies.holdAt(null)
+}
+/** (re)enter the current step's still: columns hold at the moment it was rendered */
+function arriveStill(stage: Stage) {
+  const hasStill = cinematic.arrive(stage)
+  armies.holdAt(hasStill && cinematic.enabled ? STILL_SECONDS : null)
+}
 
 /* ---------- labels ---------- */
 const labelLayer = $('#labels')
@@ -277,6 +304,7 @@ function go(i: number, fly = true) {
   prevBtn.disabled = idx === 0
   nextBtn.disabled = idx === STAGES.length - 1
   armies.setStage(stage.units)
+  arriveStill(stage)
   lightFrom = clonePreset(lightNow)
   lightTo = LIGHTS[stage.light]
   lightK = 0
@@ -304,12 +332,28 @@ $('#refly').addEventListener('click', () => {
   if (filmActive) {
     followCamera = true
     renderFilm(true)
-  } else flyTo(STAGES[current])
+  } else {
+    flyTo(STAGES[current])
+    // the columns may have marched on: re-form the step so the still lines up again
+    armies.setStage(STAGES[current].units)
+    arriveStill(STAGES[current])
+  }
 })
+$('#cinematic-toggle').addEventListener('click', (e) => {
+  cinematic.enabled = !cinematic.enabled
+  ;(e.currentTarget as HTMLElement).classList.toggle('on', cinematic.enabled)
+  if (!cinematic.enabled) armies.holdAt(null)
+  const params = new URLSearchParams(location.hash.slice(1))
+  if (cinematic.enabled) params.delete('c')
+  else params.set('c', '0')
+  history.replaceState(null, '', `#${params.toString()}`)
+})
+$('#cinematic-toggle').classList.toggle('on', cinematic.enabled)
 /* ---------- topography: 480 BC or today ---------- */
 function setModern(on: boolean) {
   if (on && !terrainModern) {
     terrainModern = buildTerrain(true)
+    bakeTerrain(terrainModern, true)
     modernFeatures = buildModernFeatures()
     scene.add(terrainModern, modernFeatures)
   }
@@ -379,8 +423,9 @@ window.addEventListener('keydown', (e) => {
   else if (e.key === 'ArrowLeft' || e.key === 'PageUp') go(current - 1)
   else if (e.key === 'Home') go(0)
   else if (e.key === 'End') go(STAGES.length - 1)
-  else if (e.key === 'r') flyTo(STAGES[current])
+  else if (e.key === 'r') $('#refly').click()
   else if (e.key === 'l') $('#labels-toggle').click()
+  else if (e.key === 'c') $('#cinematic-toggle').click()
   else if (e.key === 't') setModern(!modern)
   else if (e.key === ' ' && (e.target as HTMLElement).tagName !== 'BUTTON') {
     e.preventDefault()
@@ -577,6 +622,7 @@ $('#watch-film').addEventListener('click', () => { enterFilm(); playFilmBtn.focu
 $('#exit-film').addEventListener('click', exitFilm)
 playFilmBtn.addEventListener('click', toggleFilm)
 $('#film-replay').addEventListener('click', () => { followCamera = !reducedMotion.matches; film.seek(0); film.play(); renderFilm(true) })
+setupRenderedFilm(() => film.time, () => { film.playing = false; renderFilm(true) })
 $('#film-follow').addEventListener('click', () => { followCamera = !followCamera; renderFilm(true) })
 $('#film-speed').addEventListener('change', (event) => { film.speed = Number((event.target as HTMLSelectElement).value) })
 scrub.addEventListener('input', () => { film.playing = false; film.seek(Number(scrub.value)); renderFilm(true) })
@@ -610,6 +656,8 @@ function resize() {
   }
 }
 
+const stillEye = new THREE.Vector3()
+const stillTarget = new THREE.Vector3()
 const timer = new THREE.Timer()
 const camDir = new THREE.Vector3()
 let environmentTime = 0
@@ -663,6 +711,18 @@ function frame() {
   // flag quiet frames for tests and screenshots
   const settled = filmActive ? !film.playing : camK >= 1 && lightK >= 1 && armies.settled
   if (document.body.dataset.settled !== String(settled)) document.body.dataset.settled = String(settled)
+  if (gpu && current >= 0) {
+    resolve(STAGES[current].camera.pos, stillEye)
+    resolve(STAGES[current].camera.target, stillTarget)
+    cinematic.update({
+      film: filmActive,
+      modern,
+      settled,
+      cameraAtStage: camera.position.distanceTo(stillEye) < 0.5 && controls.target.distanceTo(stillTarget) < 0.5,
+      width: canvas.clientWidth,
+      height: canvas.clientHeight,
+    })
+  }
   if (gpu) {
     armies.updateDetail(camera.position)
     if (lightNow.fires > .05) {

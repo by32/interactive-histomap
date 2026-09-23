@@ -22,6 +22,11 @@ a { color:var(--accent); }
 [hidden] { display:none!important; }
 button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible { outline:2px solid var(--accent);outline-offset:5px; }
 #scene { position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none; }
+/* Cycles still of the current step: fades in over the live canvas once it settles */
+#still { position:fixed;inset:0;pointer-events:none;opacity:0;transition:opacity .35s ease-out; }
+#still img { width:100%;height:100%;object-fit:cover;display:block; }
+#still.on { opacity:1;transition:opacity 1.2s ease-in-out; }
+@media (prefers-reduced-motion: reduce) { #still, #still.on { transition:none; } }
 #scene-shade { position:fixed;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(5,15,18,.72),transparent 24%,transparent 52%,rgba(5,15,18,.75)),linear-gradient(90deg,rgba(5,15,18,.42),transparent 54%); }
 #shot-transition { position:fixed;inset:0;background:#081215;opacity:0;pointer-events:none;z-index:2; }
 .topbar { position:fixed;top:0;left:0;right:0;display:flex;align-items:center;gap:24px;padding:24px 4vw;pointer-events:none;z-index:5; }
@@ -128,6 +133,9 @@ body[data-renderer='atlas'] .hint::after { content:'drag to pan · pinch or scro
 body[data-renderer='atlas'] #labels,body[data-renderer='atlas'] #film-follow { display:none; }
 #evidence-dialog { width:min(1120px,94vw);max-height:92dvh;margin:auto;padding:34px;color:var(--ink);background:#142528;border:1px solid #647268;box-shadow:0 24px 120px #0008;overflow:auto; }
 #evidence-dialog::backdrop { background:#030d11c9;backdrop-filter:blur(12px); }
+#rendered-film { width:min(1280px,94vw);max-height:94dvh;margin:auto;padding:28px;color:var(--ink);background:#142528;border:1px solid #647268;box-shadow:0 24px 120px #0008;overflow:auto; }
+#rendered-film::backdrop { background:#030d11e0;backdrop-filter:blur(12px); }
+#rendered-film video { display:block;width:100%;aspect-ratio:16/9;background:#081215;margin:14px 0; }
 .evidence-top { display:flex;justify-content:space-between;align-items:start;gap:24px; }
 .evidence-top .kicker { margin:0 0 10px; }
 #evidence-title { font:normal 37px/1.12 var(--font-display);letter-spacing:-.03em;margin:0; }

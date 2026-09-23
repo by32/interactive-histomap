@@ -96,6 +96,44 @@ animation is unchanged. The primitive figures remain as a fallback until the mod
 sample the film with them. Set `$BLENDER` to a Blender binary (for example a GPU machine's
 install) to run the same scripts under full Blender instead of the Python module.
 
+```sh
+npm run bake:terrain       # terrain colour + ambient occlusion -> public/thermopylae/terrain/ (about 12 min on 4 cores)
+npm run render:stills      # Cycles stills of every step -> .cache/thermopylae/stills/ (-- --only wall for one)
+npm run encode:stills      # AVIF + WebP for the page -> public/thermopylae/stills/
+```
+
+**Baked terrain.** `bake.py` bakes the live terrain's colours, enriched with bare earth,
+greener grass and maquis scrub, multiplied by ambient occlusion with the oak forest as an
+occluder, into a 4096 px texture for 480 BC and for today (a 2048 px version for small or
+low-memory devices). Its UVs follow the terrain grid, so about 40% of the texels cover the
+coastal strip. The page drapes it over the terrain only while the terrain fingerprint recorded
+in `manifest.json` still matches `terrain.ts`; otherwise it keeps the vertex colours.
+
+**Cinematic stills.** `stills.py` renders each walkthrough step in Cycles from the page's own
+camera, field of view and step armies. The soldiers are posed by a numpy port of the page's
+vertex rig, so every figure stands, walks or fights as it does live. The renders use a
+physically based sky and sun from the step's light preset, haze from the page's fog, water
+with depth absorption, and the oak forest. When a step settles and the camera has not been
+touched, the still fades in over the live view (**Cinematic** chip, `C` key, `#c=0` to turn it
+off); any drag or scroll returns to the live scene. A still is shown only while it lines up:
+its step fingerprint (camera, formations, terrain, field of view) must match, the camera must
+be at the step's viewpoint, and the window may be no wider than the render (2560×1080).
+Marching columns hold at the moment the still was taken.
+
+**The rendered film.** `.github/workflows/render-film.yml` renders the page's 192-second
+battle film in Cycles on a farm of GitHub-hosted runners. It is manually dispatched from the
+Actions tab. The frames are split into up to 20 ranges, rendered in parallel, then
+stitched into MP4 and WebM with a poster and chapter track, and optionally published as the
+`thermopylae-film` release. The Pages deploy downloads that release into the site, and the film
+controls then offer a **Cycles render** button. Try a short cut first (frames `1440-1679`, the
+night march, with 4 shards). On a machine with a GPU the same frames render locally:
+
+```sh
+npm run export:scene -- --film 0-4607
+node scripts/thermopylae/blender.mjs film --start 0 --end 4607 --device OPTIX   # or CUDA, HIP, METAL
+node scripts/thermopylae/stitch.mjs    # needs ffmpeg
+```
+
 ## Development
 
 ```sh

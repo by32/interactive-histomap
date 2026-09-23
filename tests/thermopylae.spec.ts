@@ -69,11 +69,25 @@ test('the walkthrough steps through its scenes', async ({ page }) => {
   expect(errors).toEqual([])
 })
 
-test('the Blender-modelled soldiers replace the primitive figures', async ({ page }) => {
+test('the Blender assets load: soldiers, baked terrain, stills and the rendered film', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(e.message))
   await page.goto('thermopylae.html#s=3')
   await expect(page.locator('body')).toHaveAttribute('data-soldiers', 'blender', { timeout: 30_000 })
+  await expect(page.locator('body')).toHaveAttribute('data-terrain', 'baked', { timeout: 60_000 })
+  // a still exists for this step: it is either waiting for the view to settle or shown
+  await expect(page.locator('body')).toHaveAttribute('data-still', /waiting|shown|none/, { timeout: 30_000 })
+  // the cinematic chip turns stills off and back on
+  const chip = page.getByRole('button', { name: 'Cinematic' })
+  await chip.click()
+  await expect(page.locator('body')).toHaveAttribute('data-still', 'off')
+  await expect.poll(() => page.evaluate(() => location.hash)).toContain('c=0')
+  await chip.click()
+  await expect(page.locator('body')).not.toHaveAttribute('data-still', 'off')
+  // the Cycles film is offered only once one has been published with the site
+  const hasFilm = await page.evaluate(async () => (await fetch('thermopylae/film/film.json')).ok)
+  await expect(page.locator('#rendered-film-open')).toBeHidden()
+  if (hasFilm) await expect(page.locator('body')).toHaveAttribute('data-rendered-film', 'available')
   expect(errors).toEqual([])
 })
 
