@@ -43,6 +43,7 @@ class Scene:
         self.scene = scene
         ground = build.terrain(data, "ancient")
         ground.data.materials.append(terrain_material())
+        build.ring(data).data.materials.append(terrain_material())
         sk = build.skirt(data)
         sk.data.materials.append(terrain_material("TerrainFar"))
         trees = build.forest(data)
