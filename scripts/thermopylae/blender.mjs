@@ -7,8 +7,10 @@ import { existsSync } from 'node:fs'
 
 const args = process.argv.slice(2)
 const venv = '.cache/blender-venv'
+// a fixed hash seed keeps any set/dict ordering in the Python side stable run to run
+const env = { ...process.env, PYTHONHASHSEED: '0' }
 const run = (cmd, argv) => {
-  const r = spawnSync(cmd, argv, { stdio: 'inherit' })
+  const r = spawnSync(cmd, argv, { stdio: 'inherit', env })
   if (r.error) throw r.error
   return r.status ?? 1
 }

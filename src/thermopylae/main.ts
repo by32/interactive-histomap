@@ -11,6 +11,7 @@ import { setupEvidence } from './evidence'
 import './style.css'
 import { heightAt, modernHeightAt } from './terrain'
 import { GROUPS, STAGES, LABELS, FIGURE_SCALE, CAMERA_FOV, type Stage } from './script'
+import { loadSoldierModels } from './models'
 import { Armies } from './units'
 import { FILM_CHAPTERS, LIGHT_KEYS, UNIT_KEYS } from './film'
 import { FilmCamera } from './film-camera'
@@ -108,6 +109,17 @@ const path = buildPath()
 scene.add(path)
 const armies = new Armies()
 scene.add(armies.root)
+// Blender-modelled soldiers replace the primitive figures once they arrive
+document.body.dataset.soldiers = 'primitive'
+loadSoldierModels(`${import.meta.env.BASE_URL}thermopylae/models/soldiers.glb`)
+  .then((models) => {
+    armies.useModels(models)
+    document.body.dataset.soldiers = 'blender'
+  })
+  .catch((err) => {
+    console.warn('soldier models unavailable, keeping primitive figures', err)
+    document.body.dataset.soldiers = 'failed'
+  })
 const battleEffects = new BattleEffects()
 scene.add(battleEffects.root)
 const torchLights = Array.from({length:3}, () => new THREE.PointLight(0xffa34b,0,38,1.7))

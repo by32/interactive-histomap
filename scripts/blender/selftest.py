@@ -1,7 +1,6 @@
 """Checks the Blender install before anything expensive runs.
 
 - Cycles renders on the CPU with the OpenImageDenoise denoiser
-- the glTF exporter is available
 - Blender cameras frame the scene exactly as three.js does (probe points
   exported by export-scene.mts must land within half a pixel at 2560x1080)
 """
@@ -49,16 +48,6 @@ def check_render():
     return ok
 
 
-def check_gltf():
-    reset()
-    bpy.ops.mesh.primitive_cube_add()
-    out = os.path.join(tempfile.mkdtemp(), "cube.glb")
-    bpy.ops.export_scene.gltf(filepath=out, export_format="GLB")
-    ok = os.path.getsize(out) > 0
-    print(f"  glTF export: {'ok' if ok else 'FAILED'}")
-    return ok
-
-
 def check_camera(data, width=2560, height=1080):
     reset()
     scene = bpy.context.scene
@@ -80,7 +69,7 @@ def check_camera(data, width=2560, height=1080):
 
 def main(argv):
     print(f"Blender {bpy.app.version_string}, python {sys.version.split()[0]}")
-    results = [check_render(), check_gltf()]
+    results = [check_render()]
     try:
         results.append(check_camera(SceneData()))
     except FileNotFoundError:

@@ -3,7 +3,7 @@
   .cache/blender-venv/bin/python scripts/blender/run.py <command> [options]
   blender -b --factory-startup -P scripts/blender/run.py -- <command> [options]
 
-Commands: selftest
+Commands: selftest, models
 """
 import os
 import sys
@@ -23,6 +23,10 @@ def main(argv):
         import selftest
 
         return selftest.main(rest)
+    if command == "models":
+        import models
+
+        return models.main(rest)
     print(f"unknown command {command!r}\n{__doc__}")
     return 2
 

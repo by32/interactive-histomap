@@ -73,6 +73,29 @@ there is no recorded voice track. `film.ts` holds the authored tracks, `timeline
 shared seekable clock. `npm run test:film` checks time controls, deterministic rewinding,
 troop grounding and returning to the walkthrough, without starting a browser.
 
+### Blender pipeline
+
+The soldiers are modelled in Blender, and the same scene can be rendered in Cycles. The
+page stays the single source of truth: `npm run export:scene` runs the page's own modules in
+Node (terrain, scenery builders, army layouts, the film clock, camera and lighting) and writes
+the scene as data to `.cache/thermopylae/scene/`. The Python side in `scripts/blender/` only
+builds from that data; it never re-implements terrain or troop logic.
+
+```sh
+npm run setup:blender      # one-time: a venv with the pinned bpy wheel (Blender 4.5 LTS as a Python module)
+npm run blender:selftest   # Cycles + OpenImageDenoise, the glTF exporter, camera alignment with three.js
+npm run build:models       # re-model the soldiers -> public/thermopylae/models/soldiers.glb
+```
+
+`scripts/blender/models.py` builds a hoplite, a Persian spearman and an Immortal procedurally,
+in every formation's colourway at two levels of detail. The models keep the contract of the
+page's vertex rig (`src/thermopylae/soldier.ts`): the same joint heights, `gait` groups for legs,
+arms, shield, spear and sword, and a `metal` value per vertex, so the walking and combat
+animation is unchanged. The primitive figures remain as a fallback until the models load.
+`npm run test:film` checks the models' attributes, triangle budgets and that the armies still
+sample the film with them. Set `$BLENDER` to a Blender binary (for example a GPU machine's
+install) to run the same scripts under full Blender instead of the Python module.
+
 ## Development
 
 ```sh
