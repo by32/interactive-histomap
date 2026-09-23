@@ -10,7 +10,7 @@ import { AtlasRenderer } from './atlas-renderer'
 import { setupEvidence } from './evidence'
 import './style.css'
 import { heightAt, modernHeightAt } from './terrain'
-import { GROUPS, STAGES, LABELS, FIGURE_SCALE, type Stage } from './script'
+import { GROUPS, STAGES, LABELS, FIGURE_SCALE, CAMERA_FOV, type Stage } from './script'
 import { Armies } from './units'
 import { FILM_CHAPTERS, LIGHT_KEYS, UNIT_KEYS } from './film'
 import { FilmCamera } from './film-camera'
@@ -46,7 +46,7 @@ renderer.toneMappingExposure = 1.08
 const scene = new THREE.Scene()
 scene.fog = new THREE.Fog(0xcdd9e4, 1800, 10500)
 
-const camera = new THREE.PerspectiveCamera(46, 1, 2, 50000)
+const camera = new THREE.PerspectiveCamera(CAMERA_FOV, 1, 2, 50000)
 let composer: EffectComposer | null = null
 if (gpu) {
   gpu.shadowMap.enabled = true

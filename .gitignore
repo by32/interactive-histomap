@@ -19,6 +19,9 @@ playwright-report
 # Local debug scripts
 *.local.mjs
 
+# Blender pipeline: bpy venv, exported scene data, renders (see README)
+.cache
+
 # Upstream dataset clones (kept out of the repo; see README data regeneration)
 .data-src
 

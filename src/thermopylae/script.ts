@@ -20,6 +20,9 @@ export interface GroupDef {
 /** one rendered figure represents this many soldiers */
 export const FIGURE_SCALE = 5
 
+/** vertical field of view of the live camera, degrees; the Blender renders use the same */
+export const CAMERA_FOV = 46
+
 export const GROUPS: GroupDef[] = [
   { id: 'spartans', label: 'Spartans — 300', side: 'greek', color: 0xa8262c, count: 60 },
   { id: 'thespians', label: 'Thespians — 700', side: 'greek', color: 0x2f5a9c, count: 140 },

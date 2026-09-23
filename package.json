@@ -12,7 +12,10 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "playwright test",
-    "test:film": "playwright test --config playwright.film.config.ts"
+    "test:film": "playwright test --config playwright.film.config.ts",
+    "export:scene": "node --experimental-strip-types --no-warnings --import ./scripts/thermopylae/ts-hook.mjs scripts/thermopylae/export-scene.mts",
+    "setup:blender": "node scripts/thermopylae/blender.mjs --setup",
+    "blender:selftest": "npm run export:scene && node scripts/thermopylae/blender.mjs selftest"
   },
   "dependencies": {
     "@types/three": "^0.185.4",
