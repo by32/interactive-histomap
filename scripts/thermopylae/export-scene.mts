@@ -208,7 +208,8 @@ const scene: Record<string, unknown> = {
 scene.terrain = { ancient: terrainEntry(false), modern: terrainEntry(true) }
 
 // a coarse skirt of the same heightfield out to the horizon, for wide renders;
-// under the modelled extent it sinks out of sight beneath the detailed mesh
+// under the modelled extent it drops far below the detailed mesh (a 200 m
+// triangle across the cliff foot would otherwise poke through the concave ground)
 function skirt() {
   const step = 200
   const [x0, x1, z0, z1] = [-18000, 16000, -16000, 16000]
@@ -220,7 +221,7 @@ function skirt() {
     for (let i = 0; i < cols; i++) {
       const x = x0 + i * step
       const z = z0 + j * step
-      pos.set([x, heightAt(x, z) - (inside(x, z) ? 40 : 0.3), z], (j * cols + i) * 3)
+      pos.set([x, inside(x, z) ? -500 : heightAt(x, z) - 0.3, z], (j * cols + i) * 3)
     }
   const idx = new Uint32Array((cols - 1) * (rows - 1) * 6)
   let k = 0
