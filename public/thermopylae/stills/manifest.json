@@ -1,0 +1,116 @@
+{
+ "width": 1920,
+ "height": 810,
+ "stages": {
+  "overview": {
+   "fingerprint": "96534201",
+   "avif": {
+    "960": "01-overview-960.avif",
+    "1920": "01-overview-1920.avif"
+   },
+   "webp": {
+    "960": "01-overview-960.webp"
+   }
+  },
+  "trachis": {
+   "fingerprint": "cf690526",
+   "avif": {
+    "960": "02-trachis-960.avif",
+    "1920": "02-trachis-1920.avif"
+   },
+   "webp": {
+    "960": "02-trachis-960.webp"
+   }
+  },
+  "wall": {
+   "fingerprint": "f675d503",
+   "avif": {
+    "960": "03-wall-960.avif",
+    "1920": "03-wall-1920.avif"
+   },
+   "webp": {
+    "960": "03-wall-960.webp"
+   }
+  },
+  "day1-medes": {
+   "fingerprint": "f956ee55",
+   "avif": {
+    "960": "04-day1-medes-960.avif",
+    "1920": "04-day1-medes-1920.avif"
+   },
+   "webp": {
+    "960": "04-day1-medes-960.webp"
+   }
+  },
+  "day1-immortals": {
+   "fingerprint": "d5ceb36d",
+   "avif": {
+    "960": "05-day1-immortals-960.avif",
+    "1920": "05-day1-immortals-1920.avif"
+   },
+   "webp": {
+    "960": "05-day1-immortals-960.webp"
+   }
+  },
+  "day2": {
+   "fingerprint": "54c2123d",
+   "avif": {
+    "960": "06-day2-960.avif",
+    "1920": "06-day2-1920.avif"
+   },
+   "webp": {
+    "960": "06-day2-960.webp"
+   }
+  },
+  "anopaea": {
+   "fingerprint": "cbb98670",
+   "avif": {
+    "960": "07-anopaea-960.avif",
+    "1920": "07-anopaea-1920.avif"
+   },
+   "webp": {
+    "960": "07-anopaea-960.webp"
+   }
+  },
+  "dawn": {
+   "fingerprint": "418107fb",
+   "avif": {
+    "960": "08-dawn-960.avif",
+    "1920": "08-dawn-1920.avif"
+   },
+   "webp": {
+    "960": "08-dawn-960.webp"
+   }
+  },
+  "dismissal": {
+   "fingerprint": "a32dc1d3",
+   "avif": {
+    "960": "09-dismissal-960.avif",
+    "1920": "09-dismissal-1920.avif"
+   },
+   "webp": {
+    "960": "09-dismissal-960.webp"
+   }
+  },
+  "last-stand": {
+   "fingerprint": "9e20c72a",
+   "avif": {
+    "960": "10-last-stand-960.avif",
+    "1920": "10-last-stand-1920.avif"
+   },
+   "webp": {
+    "960": "10-last-stand-960.webp"
+   }
+  },
+  "aftermath": {
+   "fingerprint": "c7cd6c0f",
+   "avif": {
+    "960": "11-aftermath-960.avif",
+    "1920": "11-aftermath-1920.avif"
+   },
+   "webp": {
+    "960": "11-aftermath-960.webp"
+   }
+  }
+ }
+}

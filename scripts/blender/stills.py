@@ -1,6 +1,6 @@
 """Cycles stills of the walkthrough's steps, from exactly the page's cameras.
 
-  python scripts/blender/run.py stills [--only wall] [--width 2560 --height 1080]
+  python scripts/blender/run.py stills [--only wall] [--width 1920 --height 810]
       [--samples 256] [--out .cache/thermopylae/stills]
 
 Each still shows the step's settled armies (as the page shows them a few
@@ -105,9 +105,9 @@ def configure(scene, width, height, samples, noise=0.01):
 
 
 def main(argv):
-    width = arg(argv, "width", 2560)
-    height = arg(argv, "height", 1080)
-    samples = arg(argv, "samples", 256)
+    width = arg(argv, "width", 1920)
+    height = arg(argv, "height", 810)
+    samples = arg(argv, "samples", 64)
     only = arg(argv, "only", "")
     out = arg(argv, "out", OUT)
     os.makedirs(out, exist_ok=True)

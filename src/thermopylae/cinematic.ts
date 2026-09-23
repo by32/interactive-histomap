@@ -22,8 +22,8 @@ const BASE = `${import.meta.env.BASE_URL}thermopylae/stills/`
  * the sides, which is how three.js's vertical field of view widens too).
  */
 export class Cinematic {
-  enabled = true
   state: StillState = 'none'
+  private on = true
   private manifest: StillsManifest | null = null
   private stage: Stage | null = null
   private arrivedAt = 0
@@ -76,6 +76,23 @@ export class Cinematic {
     return true
   }
 
+  get enabled() {
+    return this.on
+  }
+
+  /** turn stills on or off; takes effect at once, not on the next frame */
+  set enabled(on: boolean) {
+    this.on = on
+    if (!on) this.setState('off')
+    else if (this.state === 'off') this.setState('waiting')
+  }
+
+  private setState(state: StillState) {
+    this.state = state
+    document.body.dataset.still = state
+    this.picture.classList.toggle('on', state === 'shown')
+  }
+
   /** the viewer took the camera: back to the live view until the next step */
   interrupt() {
     this.interacted = true
@@ -89,7 +106,7 @@ export class Cinematic {
   update(o: { film: boolean; modern: boolean; settled: boolean; cameraAtStage: boolean; width: number; height: number }) {
     const stage = this.stage
     let state: StillState
-    if (!this.enabled) state = 'off'
+    if (!this.on) state = 'off'
     else if (!stage || !this.manifest?.stages[stage.id]) state = 'none'
     else if (!this.entry(stage)) state = 'stale'
     else if (o.width / o.height > (this.manifest.width / this.manifest.height) * 1.005) state = 'aspect'
@@ -105,9 +122,7 @@ export class Cinematic {
       state = 'waiting'
     else state = 'shown'
     if (state !== this.state) {
-      this.state = state
-      document.body.dataset.still = state
-      this.picture.classList.toggle('on', state === 'shown')
+      this.setState(state)
       // size the request to the rendered height: cover crops the width
       this.img.sizes = this.avif.sizes = `${Math.round(o.height * (this.manifest ? this.manifest.width / this.manifest.height : 2.37))}px`
     }

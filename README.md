@@ -117,7 +117,7 @@ with depth absorption, and the oak forest. When a step settles and the camera ha
 touched, the still fades in over the live view (**Cinematic** chip, `C` key, `#c=0` to turn it
 off); any drag or scroll returns to the live scene. A still is shown only while it lines up:
 its step fingerprint (camera, formations, terrain, field of view) must match, the camera must
-be at the step's viewpoint, and the window may be no wider than the render (2560×1080).
+be at the step's viewpoint, and the window may be no wider than the render (1920×810, 2.37:1).
 Marching columns hold at the moment the still was taken.
 
 **The rendered film.** `.github/workflows/render-film.yml` renders the page's 192-second
