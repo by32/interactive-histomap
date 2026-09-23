@@ -74,6 +74,15 @@ def forest(data, name="forest"):
     return mesh_from_arrays(name, points_to_blender(world), tris)
 
 
+def ring(data):
+    """The terrain around the modelled extent, in the page's own palette."""
+    r = data["ring"]
+    pos = points_to_blender(data.f32(r["pos"]))
+    tris = data.u32(r["idx"]).reshape(-1, 3)
+    col = data.f32(r["col"]).reshape(-1, 3)
+    return mesh_from_arrays("ring", pos, tris, colors=col)
+
+
 def skirt(data):
     """The heightfield out to the horizon, coloured by height like the page's palette."""
     s = data["skirt"]
@@ -89,6 +98,21 @@ def skirt(data):
     col = col * (1 - t_rock) + rock * t_rock
     tris = data.u32(s["idx"]).reshape(-1, 3)
     return mesh_from_arrays("skirt", points_to_blender(pos3), tris, colors=col.astype(np.float32))
+
+
+def planar_uv(obj):
+    """Top-down UVs over the object's footprint, for baking a heightfield's colour."""
+    me = obj.data
+    co = np.empty(len(me.vertices) * 3, dtype=np.float32)
+    me.vertices.foreach_get("co", co)
+    xy = co.reshape(-1, 3)[:, :2]
+    lo, hi = xy.min(axis=0), xy.max(axis=0)
+    uv = (xy - lo) / np.maximum(hi - lo, 1e-6)
+    idx = np.empty(len(me.loops), dtype=np.int32)
+    me.loops.foreach_get("vertex_index", idx)
+    layer = me.uv_layers.new(name="UVMap")
+    layer.data.foreach_set("uv", np.ascontiguousarray(uv[idx], dtype=np.float32).ravel())
+    return obj
 
 
 def generic_meshes(data, entries, material_for):

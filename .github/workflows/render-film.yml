@@ -3,8 +3,9 @@
 # own runner, then stitched into MP4 and WebM and published as a release that
 # the Pages deploy serves alongside the site. Run it from the Actions tab.
 #
-# A full 192 s film at 1280x720 is 4,608 frames; at roughly 15-25 s per frame
-# on a 4-core runner that is about 30-45 minutes per shard with 20 shards.
+# A full 192 s film at 1280x720 is 4,608 frames at about a minute each on a
+# 4-core runner. 40 shards of ~115 frames take about 2 h apiece, 20 at a time,
+# so the whole film takes about 4 h and no job nears the 6 h limit.
 # Try a short cut first, e.g. frames 1440-1679 (the night march) with 4 shards.
 name: Render the Thermopylae film
 
@@ -15,15 +16,15 @@ on:
         description: 'Frame range first-last (empty for the whole film, 0-4607)'
         default: ''
       shards:
-        description: 'Parallel runners (max 20)'
-        default: '20'
+        description: 'Frame ranges, one runner each (20 run at a time)'
+        default: '40'
       width:
         default: '1280'
       height:
         default: '720'
       samples:
         description: 'Cycles samples per pixel (adaptive, denoised)'
-        default: '48'
+        default: '20'
       publish:
         description: 'Publish the stitched film as the thermopylae-film release'
         type: boolean

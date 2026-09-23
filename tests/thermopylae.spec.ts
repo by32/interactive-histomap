@@ -85,7 +85,11 @@ test('the Blender assets load: soldiers, baked terrain, stills and the rendered 
   await chip.click()
   await expect(page.locator('body')).not.toHaveAttribute('data-still', 'off')
   // the Cycles film is offered only once one has been published with the site
-  const hasFilm = await page.evaluate(async () => (await fetch('thermopylae/film/film.json')).ok)
+  // (a dev or preview server may answer a missing file with the page itself, so parse it)
+  const hasFilm = await page.evaluate(async () => {
+    const r = await fetch('thermopylae/film/film.json')
+    return r.ok && (await r.text().then((t) => { try { return Boolean(JSON.parse(t).sources) } catch { return false } }))
+  })
   await expect(page.locator('#rendered-film-open')).toBeHidden()
   if (hasFilm) await expect(page.locator('body')).toHaveAttribute('data-rendered-film', 'available')
   expect(errors).toEqual([])

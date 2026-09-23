@@ -25,13 +25,13 @@ for (const stage of scene.stages) {
   const entry = { fingerprint: stage.fingerprint, avif: {}, webp: {} }
   for (const w of [meta.width, Math.round(meta.width / 2)]) {
     const avif = `${stage.id}-${w}.avif`
-    await sharp(png).resize({ width: w }).toColourspace('srgb').avif({ quality: w > 2000 ? 52 : 56, effort: 6, chromaSubsampling: '4:2:0' }).toFile(join(OUT, avif))
+    await sharp(png).resize({ width: w }).toColourspace('srgb').avif({ quality: 64, effort: 6, chromaSubsampling: '4:2:0' }).toFile(join(OUT, avif))
     entry.avif[w] = avif
     total += statSync(join(OUT, avif)).size
   }
   const w = Math.round(meta.width / 2)
   const webp = `${stage.id}-${w}.webp`
-  await sharp(png).resize({ width: w }).toColourspace('srgb').webp({ quality: 78 }).toFile(join(OUT, webp))
+  await sharp(png).resize({ width: w }).toColourspace('srgb').webp({ quality: 82 }).toFile(join(OUT, webp))
   entry.webp[w] = webp
   total += statSync(join(OUT, webp)).size
   manifest.stages[stage.stage] = entry

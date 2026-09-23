@@ -1,6 +1,6 @@
 """Cycles stills of the walkthrough's steps, from exactly the page's cameras.
 
-  python scripts/blender/run.py stills [--only wall] [--width 2560 --height 1080]
+  python scripts/blender/run.py stills [--only wall] [--width 1920 --height 810]
       [--samples 256] [--out .cache/thermopylae/stills]
 
 Each still shows the step's settled armies (as the page shows them a few
@@ -17,7 +17,7 @@ from common import build
 from common.armies import ArmyBuilder, Model
 from common.camera import make_camera, place
 from common.io import SceneData
-from common.materials import flat_material, foliage_material, terrain_material, water_material
+from common.materials import flat_material, flatten_ground, foliage_material, terrain_material, water_material
 from common import world
 
 OUT = ".cache/thermopylae/stills"
@@ -30,7 +30,8 @@ def arg(argv, name, default):
 class Scene:
     """The static world plus the soldier models, built once."""
 
-    def __init__(self, data):
+    def __init__(self, data, flatten=False):
+        """flatten: bake the procedural ground into textures (the film's speed-up)."""
         self.data = data
         bpy.ops.wm.read_factory_settings(use_empty=True)
         # soldier models, in-process: the same geometry the page loads
@@ -43,8 +44,16 @@ class Scene:
         self.scene = scene
         ground = build.terrain(data, "ancient")
         ground.data.materials.append(terrain_material())
+        ring = build.ring(data)
+        ring.data.materials.append(terrain_material())
         sk = build.skirt(data)
         sk.data.materials.append(terrain_material("TerrainFar"))
+        if flatten:
+            t = time.time()
+            flatten_ground(ground, 4096)
+            flatten_ground(build.planar_uv(ring), 2048)
+            flatten_ground(build.planar_uv(sk), 1024)
+            print(f"  ground baked in {time.time() - t:.0f}s")
         trees = build.forest(data)
         trees.data.materials.append(foliage_material())
         build.sea(data, water_material())
@@ -104,9 +113,9 @@ def configure(scene, width, height, samples, noise=0.01):
 
 
 def main(argv):
-    width = arg(argv, "width", 2560)
-    height = arg(argv, "height", 1080)
-    samples = arg(argv, "samples", 256)
+    width = arg(argv, "width", 1920)
+    height = arg(argv, "height", 810)
+    samples = arg(argv, "samples", 64)
     only = arg(argv, "only", "")
     out = arg(argv, "out", OUT)
     os.makedirs(out, exist_ok=True)

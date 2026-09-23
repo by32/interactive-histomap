@@ -8,7 +8,7 @@ resumes where it left off.
 
   npm run export:scene -- --film 0-107
   python scripts/blender/run.py film --start 0 --end 107 [--width 1280 --height 720]
-      [--samples 48] [--out .cache/thermopylae/film/frames] [--device CPU|OPTIX|CUDA|HIP|METAL]
+      [--samples 20] [--out .cache/thermopylae/film/frames] [--device CPU|OPTIX|CUDA|HIP|METAL]
 """
 import os
 import time
@@ -44,7 +44,7 @@ def arrows_mesh(name, matrices, material):
 def main(argv):
     width = arg(argv, "width", 1280)
     height = arg(argv, "height", 720)
-    samples = arg(argv, "samples", 48)
+    samples = arg(argv, "samples", 20)
     device = arg(argv, "device", "CPU")
     out = arg(argv, "out", OUT)
     first = arg(argv, "start", 0)
@@ -62,8 +62,13 @@ def main(argv):
         print("  all frames already rendered")
         return 0
     t0 = time.time()
-    sc = Scene(data)
-    configure(sc.scene, width, height, samples, noise=0.03)
+    sc = Scene(data, flatten=True)
+    configure(sc.scene, width, height, samples, noise=0.06)
+    # a lighter path budget than the stills: indistinguishable at 720p in
+    # motion, and half the time per frame (4,608 frames must fit the farm)
+    c = sc.scene.cycles
+    c.max_bounces, c.diffuse_bounces, c.glossy_bounces = 3, 2, 1
+    c.transmission_bounces, c.transparent_max_bounces = 1, 2
     sc.scene.render.image_settings.color_depth = "8"
     # a fixed seed keeps the denoiser's residue from crawling frame to frame
     sc.scene.cycles.seed = 7

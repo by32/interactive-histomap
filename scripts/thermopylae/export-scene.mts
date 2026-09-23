@@ -207,20 +207,51 @@ const scene: Record<string, unknown> = {
 
 scene.terrain = { ancient: terrainEntry(false), modern: terrainEntry(true) }
 
-// a coarse skirt of the same heightfield out to the horizon, for wide renders;
-// under the modelled extent it sinks out of sight beneath the detailed mesh
+// Around the modelled extent, a ring of the same terrain for wide renders: the
+// page's own buildTerrain (heights and palette) run over a larger area at about
+// 30 m resolution. Under the detailed extent it takes the lowest ground within
+// 60 m (more than a cell's diagonal), so it stays beneath the detailed mesh even
+// at the concave cliff foot; outside it is the ground.
+const RING = { xMin: -12000, xMax: 12000, zMin: -11000, zMax: 10000 }
+function ring() {
+  const saved = { ...EXTENT }
+  Object.assign(EXTENT, RING)
+  const mesh = buildTerrain(false)
+  Object.assign(EXTENT, saved)
+  const g = mesh.geometry
+  const pos = Float32Array.from(g.attributes.position.array)
+  // sink only well inside the detailed extent; within a cell or two of its edge, and
+  // beyond it, the ring keeps its true heights so the two meet without a trench
+  const inside = (x: number, z: number) => x > EXTENT.xMin + 80 && x < EXTENT.xMax - 80 && z > EXTENT.zMin + 80 && z < EXTENT.zMax - 80
+  for (let i = 0; i < pos.length; i += 3) {
+    const x = pos[i]
+    const z = pos[i + 2]
+    if (!inside(x, z)) continue
+    let h = Infinity
+    for (let dx = -60; dx <= 60; dx += 15) for (let dz = -60; dz <= 60; dz += 15) h = Math.min(h, heightAt(x + dx, z + dz))
+    pos[i + 1] = h - 3
+  }
+  return {
+    pos: write('ring.pos.f32', pos),
+    col: write('ring.col.f32', Float32Array.from(g.attributes.color.array)),
+    idx: write('ring.idx.u32', Uint32Array.from(g.index!.array)),
+  }
+}
+scene.ring = ring()
+
+// Beyond the ring, a coarse skirt out to the horizon; under the ring it drops away.
 function skirt() {
   const step = 200
-  const [x0, x1, z0, z1] = [-18000, 16000, -16000, 16000]
+  const [x0, x1, z0, z1] = [-30000, 30000, -30000, 30000]
   const cols = (x1 - x0) / step + 1
   const rows = (z1 - z0) / step + 1
   const pos = new Float32Array(cols * rows * 3)
-  const inside = (x: number, z: number) => x > EXTENT.xMin + step && x < EXTENT.xMax - step && z > EXTENT.zMin + step && z < EXTENT.zMax - step
+  const underRing = (x: number, z: number) => x > RING.xMin + 400 && x < RING.xMax - 400 && z > RING.zMin + 400 && z < RING.zMax - 400
   for (let j = 0; j < rows; j++)
     for (let i = 0; i < cols; i++) {
       const x = x0 + i * step
       const z = z0 + j * step
-      pos.set([x, heightAt(x, z) - (inside(x, z) ? 40 : 0.3), z], (j * cols + i) * 3)
+      pos.set([x, underRing(x, z) ? -500 : heightAt(x, z) - 2, z], (j * cols + i) * 3)
     }
   const idx = new Uint32Array((cols - 1) * (rows - 1) * 6)
   let k = 0

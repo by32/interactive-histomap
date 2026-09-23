@@ -117,13 +117,14 @@ with depth absorption, and the oak forest. When a step settles and the camera ha
 touched, the still fades in over the live view (**Cinematic** chip, `C` key, `#c=0` to turn it
 off); any drag or scroll returns to the live scene. A still is shown only while it lines up:
 its step fingerprint (camera, formations, terrain, field of view) must match, the camera must
-be at the step's viewpoint, and the window may be no wider than the render (2560×1080).
+be at the step's viewpoint, and the window may be no wider than the render (1920×810, 2.37:1).
 Marching columns hold at the moment the still was taken.
 
 **The rendered film.** `.github/workflows/render-film.yml` renders the page's 192-second
 battle film in Cycles on a farm of GitHub-hosted runners. It is manually dispatched from the
-Actions tab. The frames are split into up to 20 ranges, rendered in parallel, then
-stitched into MP4 and WebM with a poster and chapter track, and optionally published as the
+Actions tab. The 4,608 frames are split into 40 ranges, rendered 20 at a time (about a
+minute a frame on a 4-core runner, with the procedural ground baked to textures first and a
+lighter path budget than the stills; about 4 h for the whole film), then stitched into MP4 and WebM with a poster and chapter track, and optionally published as the
 `thermopylae-film` release. The Pages deploy downloads that release into the site, and the film
 controls then offer a **Cycles render** button. Try a short cut first (frames `1440-1679`, the
 night march, with 4 shards). On a machine with a GPU the same frames render locally:

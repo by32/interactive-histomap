@@ -191,6 +191,46 @@ def terrain_material(name="Terrain"):
     return mat
 
 
+def flatten_ground(obj, size):
+    """Bakes the ground material's colour on obj (strata, scrub and all) into a
+    texture and swaps in a plain textured material. The film renders thousands
+    of frames, and evaluating the procedural ground is a third of each; baked
+    once per machine it costs a few seconds. The fine relief goes with it,
+    which a 720p frame cannot show anyway."""
+    scene = bpy.context.scene
+    src = obj.data.materials[0].copy()
+    obj.data.materials[0] = src
+    nt = src.node_tree
+    colour = nt.nodes["Principled BSDF"].inputs["Base Color"].links[0].from_socket
+    emit = nt.nodes.new("ShaderNodeEmission")
+    nt.links.new(colour, emit.inputs["Color"])
+    nt.links.new(emit.outputs["Emission"], nt.nodes["Material Output"].inputs["Surface"])
+    img = bpy.data.images.new(f"{obj.name}-colour", size, size, float_buffer=True)
+    tex = nt.nodes.new("ShaderNodeTexImage")
+    tex.image = img
+    nt.nodes.active = tex
+    engine, samples = scene.render.engine, scene.cycles.samples
+    scene.render.engine = "CYCLES"
+    scene.cycles.samples = 1
+    for o in scene.objects:
+        o.select_set(o == obj)
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.bake(type="EMIT", margin=4, use_clear=True)
+    scene.render.engine, scene.cycles.samples = engine, samples
+
+    mat = bpy.data.materials.new(f"{obj.name}-baked")
+    mat.use_nodes = True
+    bsdf = mat.node_tree.nodes["Principled BSDF"]
+    t = mat.node_tree.nodes.new("ShaderNodeTexImage")
+    t.image = img
+    t.extension = "EXTEND"
+    mat.node_tree.links.new(t.outputs["Color"], bsdf.inputs["Base Color"])
+    bsdf.inputs["Roughness"].default_value = 0.95
+    obj.data.materials[0] = mat
+    bpy.data.materials.remove(src)
+    return mat
+
+
 def flat_material(name, rgb, roughness=0.8, emission=None, strength=0.0):
     mat = bpy.data.materials.get(name)
     if mat:
