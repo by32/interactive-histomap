@@ -100,6 +100,21 @@ def skirt(data):
     return mesh_from_arrays("skirt", points_to_blender(pos3), tris, colors=col.astype(np.float32))
 
 
+def planar_uv(obj):
+    """Top-down UVs over the object's footprint, for baking a heightfield's colour."""
+    me = obj.data
+    co = np.empty(len(me.vertices) * 3, dtype=np.float32)
+    me.vertices.foreach_get("co", co)
+    xy = co.reshape(-1, 3)[:, :2]
+    lo, hi = xy.min(axis=0), xy.max(axis=0)
+    uv = (xy - lo) / np.maximum(hi - lo, 1e-6)
+    idx = np.empty(len(me.loops), dtype=np.int32)
+    me.loops.foreach_get("vertex_index", idx)
+    layer = me.uv_layers.new(name="UVMap")
+    layer.data.foreach_set("uv", np.ascontiguousarray(uv[idx], dtype=np.float32).ravel())
+    return obj
+
+
 def generic_meshes(data, entries, material_for):
     objs = []
     for e in entries:
