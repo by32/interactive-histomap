@@ -35,3 +35,7 @@ playwright-report
 *.njsproj
 *.sln
 *.sw?
+
+# Python bytecode
+__pycache__/
+*.pyc
