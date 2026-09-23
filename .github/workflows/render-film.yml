@@ -1,0 +1,129 @@
+# Renders the Thermopylae battle film in Blender (Cycles) on a farm of
+# GitHub-hosted runners: the frames are split into ranges, each rendered on its
+# own runner, then stitched into MP4 and WebM and published as a release that
+# the Pages deploy serves alongside the site. Run it from the Actions tab.
+#
+# A full 192 s film at 1280x720 is 4,608 frames; at roughly 15-25 s per frame
+# on a 4-core runner that is about 30-45 minutes per shard with 20 shards.
+# Try a short cut first, e.g. frames 1440-1679 (the night march) with 4 shards.
+name: Render the Thermopylae film
+
+on:
+  workflow_dispatch:
+    inputs:
+      frames:
+        description: 'Frame range first-last (empty for the whole film, 0-4607)'
+        default: ''
+      shards:
+        description: 'Parallel runners (max 20)'
+        default: '20'
+      width:
+        default: '1280'
+      height:
+        default: '720'
+      samples:
+        description: 'Cycles samples per pixel (adaptive, denoised)'
+        default: '48'
+      publish:
+        description: 'Publish the stitched film as the thermopylae-film release'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: render-film
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run export:scene
+      - id: plan
+        run: node scripts/thermopylae/shards.mjs "${{ inputs.frames }}" "${{ inputs.shards }}" >> "$GITHUB_OUTPUT"
+
+  render:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    name: render ${{ matrix.start }}-${{ matrix.end }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: scripts/blender/requirements.txt
+      - name: Libraries Blender needs on a headless runner
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libxi6 libxxf86vm1 libxfixes3 libxrender1 libxkbcommon0 libsm6 libgl1 libegl1
+      - run: npm ci
+      - name: Blender (bpy, pinned)
+        run: python -m venv .cache/blender-venv && .cache/blender-venv/bin/pip install -r scripts/blender/requirements.txt
+      - run: npm run export:scene -- --film ${{ matrix.start }}-${{ matrix.end }}
+      - run: node scripts/thermopylae/blender.mjs selftest
+      - name: Render frames ${{ matrix.start }}-${{ matrix.end }}
+        run: >
+          node scripts/thermopylae/blender.mjs film
+          --start ${{ matrix.start }} --end ${{ matrix.end }}
+          --width ${{ inputs.width }} --height ${{ inputs.height }} --samples ${{ inputs.samples }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frames-${{ matrix.shard }}
+          path: .cache/thermopylae/film/frames
+          retention-days: 3
+          compression-level: 0
+
+  stitch:
+    needs: [plan, render]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run export:scene
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: frames-*
+          merge-multiple: true
+          path: .cache/thermopylae/film/frames
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      - name: Stitch the film
+        run: node scripts/thermopylae/stitch.mjs
+        env:
+          FILM_WIDTH: ${{ inputs.width }}
+          FILM_HEIGHT: ${{ inputs.height }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: thermopylae-film
+          path: .cache/thermopylae/film/out
+      - name: Publish the thermopylae-film release
+        if: ${{ inputs.publish }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view thermopylae-film >/dev/null 2>&1 || gh release create thermopylae-film --title "Thermopylae film (Cycles render)" --notes "Rendered by the render-film workflow from ${GITHUB_SHA}." --latest=false
+          gh release upload thermopylae-film .cache/thermopylae/film/out/* --clobber

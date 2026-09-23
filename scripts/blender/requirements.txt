@@ -1,0 +1,3 @@
+# Blender as a Python module, pinned: the 4.5 LTS line (Python 3.11).
+# Install:  python3.11 -m venv .cache/blender-venv && .cache/blender-venv/bin/pip install -r scripts/blender/requirements.txt
+bpy==4.5.14

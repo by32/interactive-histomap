@@ -21,6 +21,7 @@
   <body>
     <div id="scene-loading" role="status"><span>THERMOPYLAE</span><p>Opening the pass…</p></div>
     <canvas id="scene" aria-label="3D model of the pass of Thermopylae"></canvas>
+    <picture id="still" aria-hidden="true"><source type="image/avif" /><img alt="" decoding="async" /></picture>
     <div id="scene-shade" aria-hidden="true"></div>
     <div id="shot-transition" aria-hidden="true"></div>
     <div id="labels" aria-hidden="true"></div>
@@ -34,6 +35,7 @@
           <button id="topo-modern" class="chip">Today</button>
         </div>
         <button id="labels-toggle" class="chip on" title="Toggle place names (L)">Place names</button>
+        <button id="cinematic-toggle" class="chip on" title="Show a Cycles-rendered still once a step settles (C)">Cinematic</button>
         <button id="legend-toggle" class="chip" title="Who is who">Armies</button>
         <button id="evidence-open" class="chip">Art &amp; evidence</button>
         <button id="refly" class="chip" title="Return the camera to this step's viewpoint (R)">Reset view</button>
@@ -54,7 +56,8 @@
       <h3>Who is who</h3>
       <ul id="legend-list"></ul>
       <p class="fine">
-        Colours distinguish formations, not documented uniforms. Each figure stands for <span id="figure-scale">5</span> soldiers. Greek numbers follow
+        Soldiers are modelled in Blender from Archaic Greek arms and armour and Herodotus'
+        descriptions of Persian dress. Colours distinguish formations, not documented uniforms. Each figure stands for <span id="figure-scale">5</span> soldiers. Greek numbers follow
         Herodotus 7.202–203; the Persian host is drawn at 30,000 and its true size is disputed.
       </p>
       <h3>About this reconstruction</h3>
@@ -114,6 +117,7 @@
           </select>
         </label>
         <button id="film-follow" class="chip on" aria-pressed="true">Follow camera</button>
+        <button id="rendered-film-open" class="chip" hidden title="The same film, path-traced in Blender Cycles">Cycles render</button>
       </div>
       <input id="film-scrub" type="range" min="0" max="192" value="0" step="0.1" aria-label="Film position" />
       <p class="film-note"><a id="film-source" href="https://lexundria.com/hdt/7.176/mcly" target="_blank" rel="noopener">Herodotus 7.176 ↗</a><span> · movements and losses are schematic</span></p>
@@ -124,6 +128,11 @@
       <p class="evidence-intro">Objects made in the world of Thermopylae. These surviving works inform the equipment and visual language of the scene.</p>
       <div id="evidence-gallery"></div>
       <div class="reconstruction-note"><h3>Evidence and interpretation</h3><p>The Greek figures carry round shields, thrusting spears and Corinthian-type helmets. Persian figures wear sleeved tunics, trousers and soft caps, with wicker shields and bows, following <a href="https://lexundria.com/hdt/7.61/mcly" target="_blank" rel="noopener">Herodotus 7.61</a>. Colours distinguish armies; they are not known uniforms. The Susa archers are palace imagery, and the vase is not a documented scene of Thermopylae.</p><p>The mountain and ancient shore form a schematic reconstruction, not a surveyed landscape. The path’s exact course is debated. Three days are compressed into 3 minutes 12 seconds. Cuts skip elapsed time; combat movements, figure sizes and losses are illustrative, not measured casualty counts.</p><p>The fighting follows <a href="https://lexundria.com/hdt/7.210/mcly" target="_blank" rel="noopener">Herodotus 7.210–212</a>; the final advance, death of Leonidas and retreat follow <a href="https://lexundria.com/hdt/7.223/mcly" target="_blank" rel="noopener">7.223–225</a>. His description of the Thebans’ motives is his interpretation; their separation and surrender are recounted in <a href="https://lexundria.com/hdt/7.233/mcly" target="_blank" rel="noopener">7.233</a>. The relief atlas and the 3D view use the same sequence.</p></div>
+    </dialog>
+    <dialog id="rendered-film" aria-labelledby="rendered-film-title">
+      <div class="evidence-top"><div><p class="kicker">RENDERED IN BLENDER CYCLES</p><h2 id="rendered-film-title">The battle, path-traced</h2></div><button id="rendered-film-close" class="chip" aria-label="Close the rendered film">Close ×</button></div>
+      <video id="rendered-film-video" controls playsinline preload="none"></video>
+      <p class="evidence-intro">The same directed film as the interactive version: the page's camera, troop movements, combat and light, rendered frame by frame in Cycles with the Blender-modelled soldiers. Scrub or use the chapters; close to return to the interactive film.</p>
     </dialog>
     <script type="module" src="/src/thermopylae/main.ts"></script>
   </body>

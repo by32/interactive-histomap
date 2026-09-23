@@ -25,6 +25,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      - name: Serve the rendered Thermopylae film, if one has been published
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download thermopylae-film --dir dist/thermopylae/film --repo "$GITHUB_REPOSITORY" || echo "no rendered film published yet"
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:

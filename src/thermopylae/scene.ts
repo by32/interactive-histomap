@@ -71,6 +71,11 @@ export function buildTerrain(modern = false): THREE.Mesh {
   }
   const positions = new Float32Array((nx + 1) * (nz + 1) * 3)
   const colors = new Float32Array((nx + 1) * (nz + 1) * 3)
+  // UVs follow the grid, so a baked texture spends its texels where the rows are:
+  // about 40% of it covers the few hundred metres of the coastal strip
+  const uvs = new Float32Array((nx + 1) * (nz + 1) * 2)
+  for (let iz = 0; iz <= nz; iz++)
+    for (let ix = 0; ix <= nx; ix++) uvs.set([ix / nx, iz / nz], (iz * (nx + 1) + ix) * 2)
   const col = new THREE.Color()
   const tmp = new THREE.Color()
   let p = 0
@@ -141,6 +146,7 @@ export function buildTerrain(modern = false): THREE.Mesh {
   const geom = new THREE.BufferGeometry()
   geom.setAttribute('position', new THREE.BufferAttribute(positions, 3))
   geom.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+  geom.setAttribute('uv', new THREE.BufferAttribute(uvs, 2))
   geom.setIndex(new THREE.BufferAttribute(index, 1))
   geom.computeVertexNormals()
   const mat = limestoneMaterial()

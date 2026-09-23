@@ -38,3 +38,13 @@ mkdir -p .github/workflows
 git mv docs/github-pages-workflow.yml .github/workflows/deploy.yml
 git commit -m "Add Pages deploy workflow" && git push
 ```
+
+## The rendered Thermopylae film
+
+`render-film.yml` is a manually triggered workflow (Actions → *Render the Thermopylae film* →
+*Run workflow*). GitHub only lists a `workflow_dispatch` workflow once it is on the default
+branch. With **publish** ticked it creates or updates the `thermopylae-film` release. The
+deploy workflow downloads that release into `dist/thermopylae/film/` on every build, so the
+video is served from the site itself. It plays in every browser, and the page shows its
+**Cycles render** button once `film.json` is present. Re-run the deploy, or push any
+commit, after publishing a new render.

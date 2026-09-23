@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { soldierGeometry, soldierMaterial, soldierDepthMaterial } from './soldier'
+import { soldierGeometry, soldierMaterial, soldierDepthMaterial, FIGURE_SIZE } from './soldier'
 import { battlePose } from './battle'
 import { softenPoints } from './atmosphere'
 import { heightAt, stripZ, clampToStrip, shoreline, ANOPAEA_XZ } from './terrain'
@@ -192,6 +192,7 @@ export class Armies {
   private filmLayouts: Layout[][] = []
   private filmProgress: number | null = null
   private marchTime = { value: 0 }
+  private hold: number | null = null
 
   constructor() {
     this.material = soldierMaterial(this.marchTime)
@@ -238,6 +239,29 @@ export class Armies {
       this.root.add(mesh)
     })
     this.apply()
+  }
+
+  /**
+   * Swap in the Blender-modelled soldiers: `<group>_LOD1` for the crowd and
+   * `<group>_LOD0` for the nearest figures. The primitive figures stay until
+   * this is called, and remain if the models never arrive.
+   */
+  useModels(models: Map<string, THREE.BufferGeometry>) {
+    const adopt = (model: THREE.BufferGeometry, old: THREE.BufferGeometry) => {
+      const g = model.clone().scale(FIGURE_SIZE, FIGURE_SIZE, FIGURE_SIZE)
+      // per-instance walking phase and combat pose carry over unchanged
+      g.setAttribute('motion', old.getAttribute('motion'))
+      g.setAttribute('battle', old.getAttribute('battle'))
+      old.dispose()
+      return g
+    }
+    for (const a of this.armies) {
+      const far = models.get(`${a.def.id}_LOD1`)
+      const near = models.get(`${a.def.id}_LOD0`)
+      if (!far || !near) continue
+      a.mesh.geometry = adopt(far, a.mesh.geometry)
+      a.detail.geometry = adopt(near, a.detail.geometry)
+    }
   }
 
   setStage(units: Record<string, Placement>, snap = false) {
@@ -296,10 +320,17 @@ export class Armies {
     this.torches.visible = v > 0.01
   }
 
+  /** Stop the clock of marching columns and walking at `seconds` after the step
+   * began (a rendered still shows that moment); null lets it run again. */
+  holdAt(seconds: number | null) {
+    this.hold = seconds
+  }
+
   update(dt: number) {
     const wasDone = this.progress >= 1
     this.progress = Math.min(1, this.progress + dt / TRANSITION_S)
     this.stageTime += dt
+    if (this.hold !== null) this.stageTime = Math.min(this.stageTime, this.hold)
     this.marchTime.value = this.stageTime
     let marching = false
     for (const a of this.armies) {

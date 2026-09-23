@@ -73,6 +73,67 @@ there is no recorded voice track. `film.ts` holds the authored tracks, `timeline
 shared seekable clock. `npm run test:film` checks time controls, deterministic rewinding,
 troop grounding and returning to the walkthrough, without starting a browser.
 
+### Blender pipeline
+
+The soldiers are modelled in Blender, and the same scene can be rendered in Cycles. The
+page stays the single source of truth: `npm run export:scene` runs the page's own modules in
+Node (terrain, scenery builders, army layouts, the film clock, camera and lighting) and writes
+the scene as data to `.cache/thermopylae/scene/`. The Python side in `scripts/blender/` only
+builds from that data; it never re-implements terrain or troop logic.
+
+```sh
+npm run setup:blender      # one-time: a venv with the pinned bpy wheel (Blender 4.5 LTS as a Python module)
+npm run blender:selftest   # Cycles + OpenImageDenoise, the glTF exporter, camera alignment with three.js
+npm run build:models       # re-model the soldiers -> public/thermopylae/models/soldiers.glb
+```
+
+`scripts/blender/models.py` builds a hoplite, a Persian spearman and an Immortal procedurally,
+in every formation's colourway at two levels of detail. The models keep the contract of the
+page's vertex rig (`src/thermopylae/soldier.ts`): the same joint heights, `gait` groups for legs,
+arms, shield, spear and sword, and a `metal` value per vertex, so the walking and combat
+animation is unchanged. The primitive figures remain as a fallback until the models load.
+`npm run test:film` checks the models' attributes, triangle budgets and that the armies still
+sample the film with them. Set `$BLENDER` to a Blender binary (for example a GPU machine's
+install) to run the same scripts under full Blender instead of the Python module.
+
+```sh
+npm run bake:terrain       # terrain colour + ambient occlusion -> public/thermopylae/terrain/ (about 12 min on 4 cores)
+npm run render:stills      # Cycles stills of every step -> .cache/thermopylae/stills/ (-- --only wall for one)
+npm run encode:stills      # AVIF + WebP for the page -> public/thermopylae/stills/
+```
+
+**Baked terrain.** `bake.py` bakes the live terrain's colours, enriched with bare earth,
+greener grass and maquis scrub, multiplied by ambient occlusion with the oak forest as an
+occluder, into a 4096 px texture for 480 BC and for today (a 2048 px version for small or
+low-memory devices). Its UVs follow the terrain grid, so about 40% of the texels cover the
+coastal strip. The page drapes it over the terrain only while the terrain fingerprint recorded
+in `manifest.json` still matches `terrain.ts`; otherwise it keeps the vertex colours.
+
+**Cinematic stills.** `stills.py` renders each walkthrough step in Cycles from the page's own
+camera, field of view and step armies. The soldiers are posed by a numpy port of the page's
+vertex rig, so every figure stands, walks or fights as it does live. The renders use a
+physically based sky and sun from the step's light preset, haze from the page's fog, water
+with depth absorption, and the oak forest. When a step settles and the camera has not been
+touched, the still fades in over the live view (**Cinematic** chip, `C` key, `#c=0` to turn it
+off); any drag or scroll returns to the live scene. A still is shown only while it lines up:
+its step fingerprint (camera, formations, terrain, field of view) must match, the camera must
+be at the step's viewpoint, and the window may be no wider than the render (2560×1080).
+Marching columns hold at the moment the still was taken.
+
+**The rendered film.** `.github/workflows/render-film.yml` renders the page's 192-second
+battle film in Cycles on a farm of GitHub-hosted runners. It is manually dispatched from the
+Actions tab. The frames are split into up to 20 ranges, rendered in parallel, then
+stitched into MP4 and WebM with a poster and chapter track, and optionally published as the
+`thermopylae-film` release. The Pages deploy downloads that release into the site, and the film
+controls then offer a **Cycles render** button. Try a short cut first (frames `1440-1679`, the
+night march, with 4 shards). On a machine with a GPU the same frames render locally:
+
+```sh
+npm run export:scene -- --film 0-4607
+node scripts/thermopylae/blender.mjs film --start 0 --end 4607 --device OPTIX   # or CUDA, HIP, METAL
+node scripts/thermopylae/stitch.mjs    # needs ffmpeg
+```
+
 ## Development
 
 ```sh

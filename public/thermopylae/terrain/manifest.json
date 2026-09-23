@@ -1,0 +1,16 @@
+{
+ "480bc": {
+  "files": {
+   "2048": "480bc-2048.webp",
+   "4096": "480bc-4096.webp"
+  },
+  "fingerprint": "d331210a"
+ },
+ "today": {
+  "files": {
+   "2048": "today-2048.webp",
+   "4096": "today-4096.webp"
+  },
+  "fingerprint": "a5bd8591"
+ }
+}

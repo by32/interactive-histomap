@@ -19,6 +19,9 @@ playwright-report
 # Local debug scripts
 *.local.mjs
 
+# Blender pipeline: bpy venv, exported scene data, renders (see README)
+.cache
+
 # Upstream dataset clones (kept out of the repo; see README data regeneration)
 .data-src
 
@@ -32,3 +35,7 @@ playwright-report
 *.njsproj
 *.sln
 *.sw?
+
+# Python bytecode
+__pycache__/
+*.pyc
