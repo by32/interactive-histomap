@@ -16,6 +16,7 @@ Blender coordinates throughout: front is -Y, up is +Z, the spear side is +X.
 import hashlib
 import math
 import os
+import shutil
 import urllib.request
 import zipfile
 
@@ -24,6 +25,7 @@ import numpy as np
 from mathutils import Vector
 
 URL = "https://mirror.blender.org/demo/asset-bundles/human-base-meshes/human-base-meshes-bundle-v1.4.1.zip"
+USER_AGENT = "interactive-histomap-render (+https://github.com/by32/interactive-histomap)"
 SHA256 = "811f43accbb31a88266d932f8f5563b2d13586fca0ba2693aad1f5fe582b3515"
 CACHE = ".cache/assets"
 BLEND = "human-base-meshes-bundle-v1.4.1/human_base_meshes_bundle.blend"
@@ -56,7 +58,11 @@ def fetch():
     archive = os.path.join(CACHE, os.path.basename(URL))
     if not os.path.exists(archive):
         print(f"  downloading {URL}")
-        urllib.request.urlretrieve(URL, archive)
+        # the mirror refuses Python's default user agent (HTTP 403)
+        request = urllib.request.Request(URL, headers={"User-Agent": USER_AGENT})
+        with urllib.request.urlopen(request, timeout=120) as response, open(archive + ".part", "wb") as out:
+            shutil.copyfileobj(response, out, 1 << 20)
+        os.replace(archive + ".part", archive)  # a cut-off download never passes for a whole one
     digest = hashlib.sha256(open(archive, "rb").read()).hexdigest()
     if digest != SHA256:
         raise SystemExit(f"{archive}: sha256 {digest}, expected {SHA256}")
