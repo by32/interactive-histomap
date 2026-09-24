@@ -79,6 +79,11 @@ jobs:
       - run: npm ci
       - name: Blender (bpy, pinned)
         run: python -m venv .cache/blender-venv && .cache/blender-venv/bin/pip install -r scripts/blender/requirements.txt
+      # the soldiers' CC0 base body (scripts/blender/common/body.py), fetched once
+      - uses: actions/cache@v4
+        with:
+          path: .cache/assets
+          key: human-base-meshes-v1.4.1
       - run: npm run export:scene -- --film ${{ matrix.start }}-${{ matrix.end }}
       - run: node scripts/thermopylae/blender.mjs selftest
       - name: Render frames ${{ matrix.start }}-${{ matrix.end }}

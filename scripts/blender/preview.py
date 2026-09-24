@@ -22,9 +22,10 @@ def lineup(objects, out, width=1600, height=900, samples=64):
     for o in objects:
         # the sword (gait 4) is hidden until spears break, as the page's rig does
         gait = o.data.attributes["_gait"].data
+        hx, hy, hz = o["rig"]["hand"]
         for v, g in zip(o.data.vertices, gait):
             if g.value > 3.5:
-                v.co = (0.36, -0.075, 1.1125)
+                v.co = (hx, -hz, hy)
     for row, group in enumerate((lod0, lod1)):
         for i, o in enumerate(group):
             o.data.materials.clear()

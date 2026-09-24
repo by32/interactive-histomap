@@ -12,6 +12,7 @@ import './style.css'
 import { heightAt, modernHeightAt } from './terrain'
 import { GROUPS, STAGES, LABELS, FIGURE_SCALE, CAMERA_FOV, STILL_SECONDS, type Stage } from './script'
 import { loadSoldierModels } from './models'
+import { accentColour, useRig } from './soldier'
 import { applyBakedTerrain } from './baked'
 import { Cinematic } from './cinematic'
 import { setupRenderedFilm } from './rendered-film'
@@ -127,7 +128,8 @@ const cinematic = new Cinematic($<HTMLPictureElement>('#still'))
 cinematic.enabled = new URLSearchParams(location.hash.slice(1)).get('c') !== '0'
 document.body.dataset.soldiers = 'primitive'
 loadSoldierModels(`${import.meta.env.BASE_URL}thermopylae/models/soldiers.glb`)
-  .then((models) => {
+  .then(({ models, rig }) => {
+    useRig(rig)
     armies.useModels(models)
     document.body.dataset.soldiers = 'blender'
   })
@@ -631,7 +633,7 @@ const legendList = $('#legend-list')
 for (const g of GROUPS) {
   const li = document.createElement('li')
   const sw = document.createElement('i')
-  sw.style.background = '#' + g.color.toString(16).padStart(6, '0')
+  sw.style.background = '#' + accentColour(g.color).getHexString()
   li.append(sw, g.label)
   li.className = g.side
   legendList.appendChild(li)
