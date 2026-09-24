@@ -30,35 +30,52 @@
       <a class="back" href="./#y=-500&e=achaemenid" title="Back to the Histomap at 480 BC">← Histomap</a>
       <h1>Thermopylae <span>THE HOT GATES · 480 BC</span></h1>
       <div class="tools">
+        <button id="watch-film" class="chip" title="Watch the whole battle: 14 chapters, 3 minutes 12 seconds">▶ Film</button>
+        <button id="exit-film" class="chip" aria-label="Back to walkthrough" title="Step through the battle at your own pace">Steps</button>
+        <button id="menu-toggle" class="chip" aria-expanded="false" aria-controls="menu">Options</button>
+      </div>
+    </header>
+
+    <div id="menu" role="group" aria-label="Options" hidden>
+      <div class="menu-row">
+        <span>Coastline</span>
         <div class="segmented" role="group" aria-label="Topography" title="Switch between the coast of 480 BC and today's silted plain (T)">
           <button id="topo-ancient" class="chip on">480 BC</button>
           <button id="topo-modern" class="chip">Today</button>
         </div>
-        <button id="labels-toggle" class="chip on" title="Toggle place names (L)">Place names</button>
-        <button id="cinematic-toggle" class="chip on" title="Show a Cycles-rendered still once a step settles (C)">Cinematic</button>
-        <button id="legend-toggle" class="chip" title="Who is who">Armies</button>
-        <button id="evidence-open" class="chip">Art &amp; evidence</button>
-        <button id="refly" class="chip" title="Return the camera to this step's viewpoint (R)">Reset view</button>
       </div>
-    </header>
-
-    <div id="compass" title="North">
-      <div id="needle">N</div>
+      <button id="labels-toggle" class="toggle on" title="Toggle place names (L)">Place names</button>
+      <button id="cinematic-toggle" class="toggle on walk-only" title="Show a Cycles-rendered still once a step settles (C)">Cinematic stills</button>
+      <button id="auto" class="toggle walk-only" title="Advance automatically (Space)">Auto-advance</button>
+      <button id="film-follow" class="toggle on film-only" aria-pressed="true">Follow camera</button>
+      <label class="menu-row film-only">Speed
+        <select id="film-speed" aria-label="Playback speed">
+          <option value="0.5">0.5×</option>
+          <option value="1" selected>1×</option>
+          <option value="1.5">1.5×</option>
+          <option value="2">2×</option>
+        </select>
+      </label>
+      <hr />
+      <button id="legend-toggle" class="menu-link" title="Who is who">Armies</button>
+      <button id="evidence-open" class="menu-link">Art &amp; evidence</button>
+      <button id="rendered-film-open" class="menu-link film-only" hidden title="The same film, path-traced in Blender Cycles">Cycles render</button>
+      <button id="refly" class="menu-link" title="Return the camera to this step's viewpoint (R)">Reset view</button>
+      <p class="film-note film-only"><a id="film-source" href="https://lexundria.com/hdt/7.176/mcly" target="_blank" rel="noopener">Herodotus 7.176 ↗</a> · movements and losses are schematic</p>
     </div>
 
-    <button id="artifact-card" aria-label="Explore the period artwork and historical evidence">
-      <span class="artifact-overline">FROM THE AGE OF THE BATTLE</span>
-      <img id="artifact-image" alt="Period artwork" width="240" height="270" />
-      <span class="artifact-info"><strong id="artifact-name"></strong><span id="artifact-date"></span><span class="artifact-link">Explore the evidence ↗</span></span>
-    </button>
     <p id="atlas-notice">Relief atlas · 3D is unavailable in this browser</p>
     <aside id="legend">
+      <button id="legend-close" class="chip" aria-label="Close">×</button>
       <h3>Who is who</h3>
       <ul id="legend-list"></ul>
       <p class="fine">
-        Soldiers are modelled in Blender from Archaic Greek arms and armour and Herodotus'
-        descriptions of Persian dress. Colours distinguish formations, not documented uniforms. Each figure stands for <span id="figure-scale">5</span> soldiers. Greek numbers follow
-        Herodotus 7.202–203; the Persian host is drawn at 30,000 and its true size is disputed.
+        Soldiers are modelled in Blender on a real human body (Blender Studio's CC0 base mesh),
+        armed from Archaic Greek arms and armour and Herodotus' descriptions of Persian dress. Dress
+        varies from man to man; each formation is marked by one muted colour, shown here, on its
+        shields, tiaras or robe borders. It is a key, not a documented uniform. Each figure stands for
+        <span id="figure-scale">5</span> soldiers. Greek numbers follow Herodotus 7.202–203; the
+        Persian host is drawn at 30,000 and its true size is disputed.
       </p>
       <h3>About this reconstruction</h3>
       <p class="fine">
@@ -74,9 +91,7 @@
     </aside>
 
     <section id="panel" aria-live="polite">
-      <button id="panel-toggle" class="grip" title="Show or hide the narration" aria-label="Toggle narration"></button>
-      <button id="watch-film" class="film-entry"><span class="entry-play">▶</span><span class="entry-copy">Watch the whole battle<small>14 chapters · 3 minutes 12 seconds</small></span><span class="entry-arrow">↗</span></button>
-      <div class="stage"><div class="chapter-line" aria-hidden="true"></div>
+      <div class="stage">
         <div class="kicker-row">
           <span id="kicker" class="kicker"></span>
           <span id="counter" class="counter"></span>
@@ -88,46 +103,30 @@
         <button id="prev" class="step" aria-label="Previous step">‹</button>
         <div id="dots" role="list"></div>
         <button id="next" class="step" aria-label="Next step">›</button>
-        <button id="auto" class="chip" title="Advance automatically (Space)">▶ auto</button>
       </nav>
       <p class="hint">drag to orbit · scroll to zoom · right-drag to pan · ← → steps</p>
     </section>
 
     <section id="cinema" aria-label="Animated battle of Thermopylae" hidden>
-      <div class="film-heading">
-        <div class="film-chapter-heading"><span id="film-number">01 / 14</span><span id="film-kicker" class="kicker">The Greek position</span></div>
-        <button id="exit-film" class="chip">Back to walkthrough</button>
-      </div>
+      <div class="kicker-row"><span id="film-kicker" class="kicker">The Greek position</span><span id="film-number" class="counter">01 / 14</span></div>
       <div id="film-narration" aria-live="polite" aria-atomic="true">
         <h2 id="film-title">An army holds the narrow road</h2>
         <p id="film-caption"></p>
       </div>
-      <nav id="film-chapters" aria-label="Film chapters"></nav>
-      <label class="chapter-picker">Chapter <select id="film-jump" aria-label="Choose a battle chapter"></select></label>
       <div class="film-transport">
-        <button id="film-play" class="chip on" aria-label="Play film">▶ Play</button>
-        <button id="film-replay" class="chip" aria-label="Replay film">↺ Replay</button>
+        <button id="film-prev" class="step" aria-label="Previous chapter">‹</button>
+        <button id="film-play" class="play" aria-label="Play film">▶</button>
+        <button id="film-next" class="step" aria-label="Next chapter">›</button>
+        <input id="film-scrub" type="range" min="0" max="192" value="0" step="0.1" aria-label="Film position" />
         <output id="film-time" aria-label="Playback time">0:00 / 3:12</output>
-        <label class="speed-label">Speed
-          <select id="film-speed" aria-label="Playback speed">
-            <option value="0.5">0.5×</option>
-            <option value="1" selected>1×</option>
-            <option value="1.5">1.5×</option>
-            <option value="2">2×</option>
-          </select>
-        </label>
-        <button id="film-follow" class="chip on" aria-pressed="true">Follow camera</button>
-        <button id="rendered-film-open" class="chip" hidden title="The same film, path-traced in Blender Cycles">Cycles render</button>
       </div>
-      <input id="film-scrub" type="range" min="0" max="192" value="0" step="0.1" aria-label="Film position" />
-      <p class="film-note"><a id="film-source" href="https://lexundria.com/hdt/7.176/mcly" target="_blank" rel="noopener">Herodotus 7.176 ↗</a><span> · movements and losses are schematic</span></p>
     </section>
 
     <dialog id="evidence-dialog" aria-labelledby="evidence-title">
       <div class="evidence-top"><div><p class="kicker">THE MATERIAL RECORD</p><h2 id="evidence-title">The art behind the reconstruction</h2></div><button id="evidence-close" class="chip" aria-label="Close evidence">Close ×</button></div>
       <p class="evidence-intro">Objects made in the world of Thermopylae. These surviving works inform the equipment and visual language of the scene.</p>
       <div id="evidence-gallery"></div>
-      <div class="reconstruction-note"><h3>Evidence and interpretation</h3><p>The Greek figures carry round shields, thrusting spears and Corinthian-type helmets. Persian figures wear sleeved tunics, trousers and soft caps, with wicker shields and bows, following <a href="https://lexundria.com/hdt/7.61/mcly" target="_blank" rel="noopener">Herodotus 7.61</a>. Colours distinguish armies; they are not known uniforms. The Susa archers are palace imagery, and the vase is not a documented scene of Thermopylae.</p><p>The mountain and ancient shore form a schematic reconstruction, not a surveyed landscape. The path’s exact course is debated. Three days are compressed into 3 minutes 12 seconds. Cuts skip elapsed time; combat movements, figure sizes and losses are illustrative, not measured casualty counts.</p><p>The fighting follows <a href="https://lexundria.com/hdt/7.210/mcly" target="_blank" rel="noopener">Herodotus 7.210–212</a>; the final advance, death of Leonidas and retreat follow <a href="https://lexundria.com/hdt/7.223/mcly" target="_blank" rel="noopener">7.223–225</a>. His description of the Thebans’ motives is his interpretation; their separation and surrender are recounted in <a href="https://lexundria.com/hdt/7.233/mcly" target="_blank" rel="noopener">7.233</a>. The relief atlas and the 3D view use the same sequence.</p></div>
+      <div class="reconstruction-note"><h3>Evidence and interpretation</h3><p>The Greek figures carry round shields, thrusting spears and Corinthian-type helmets. Persian figures wear sleeved tunics, trousers and soft caps, with wicker shields and bows, following <a href="https://lexundria.com/hdt/7.61/mcly" target="_blank" rel="noopener">Herodotus 7.61</a>. Each formation is keyed by one muted colour on its shields, tiaras or robe borders; this is a key, not a known uniform. The Susa archers are palace imagery, and the vase is not a documented scene of Thermopylae.</p><p>The mountain and ancient shore form a schematic reconstruction, not a surveyed landscape. The path’s exact course is debated. Three days are compressed into 3 minutes 12 seconds. Cuts skip elapsed time; combat movements, figure sizes and losses are illustrative, not measured casualty counts.</p><p>The fighting follows <a href="https://lexundria.com/hdt/7.210/mcly" target="_blank" rel="noopener">Herodotus 7.210–212</a>; the final advance, death of Leonidas and retreat follow <a href="https://lexundria.com/hdt/7.223/mcly" target="_blank" rel="noopener">7.223–225</a>. His description of the Thebans’ motives is his interpretation; their separation and surrender are recounted in <a href="https://lexundria.com/hdt/7.233/mcly" target="_blank" rel="noopener">7.233</a>. The relief atlas and the 3D view use the same sequence.</p></div>
     </dialog>
     <dialog id="rendered-film" aria-labelledby="rendered-film-title">
       <div class="evidence-top"><div><p class="kicker">RENDERED IN BLENDER CYCLES</p><h2 id="rendered-film-title">The battle, path-traced</h2></div><button id="rendered-film-close" class="chip" aria-label="Close the rendered film">Close ×</button></div>

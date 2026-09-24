@@ -18,6 +18,11 @@ test('the Thermopylae page opens on the film and returns to the walkthrough', as
   // with no hash the film starts
   await expect(page.locator('body')).toHaveAttribute('data-mode', 'film')
   await expect(page.locator('#cinema')).toBeVisible()
+  // chapters step forward and back from the transport
+  await page.getByRole('button', { name: 'Next chapter' }).click()
+  await expect(page.locator('#film-number')).toHaveText('02 / 14')
+  await page.getByRole('button', { name: 'Previous chapter' }).click()
+  await expect(page.locator('#film-number')).toHaveText('01 / 14')
   await page.getByRole('button', { name: 'Back to walkthrough' }).click()
   await expect(page.locator('body')).not.toHaveAttribute('data-mode', 'film')
   await expect(page.locator('#panel')).toBeVisible()
@@ -25,8 +30,8 @@ test('the Thermopylae page opens on the film and returns to the walkthrough', as
 })
 
 test('the walkthrough steps through its scenes', async ({ page }) => {
-  // many steps against software WebGL: give it room
-  test.setTimeout(240_000)
+  // many steps and both topographies against software WebGL: give it room
+  test.setTimeout(360_000)
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(e.message))
   await page.goto('thermopylae.html#s=1')
@@ -47,15 +52,24 @@ test('the walkthrough steps through its scenes', async ({ page }) => {
     .poll(async () => page.locator('#labels .label:visible').count(), { timeout: 20_000 })
     .toBeGreaterThan(2)
 
-  // the armies legend lists both sides
+  // everything beyond the story and the step controls waits in the Options menu
+  const options = page.getByRole('button', { name: 'Options' })
+  await expect(page.locator('#menu')).toBeHidden()
+  await options.click()
+  await expect(page.locator('#menu')).toBeVisible()
+
+  // the armies legend lists both sides; opening it closes the menu
   await page.getByRole('button', { name: 'Armies' }).click()
+  await expect(page.locator('#menu')).toBeHidden()
   await expect(page.locator('#legend-list li')).toHaveCount(8)
   await expect(page.locator('#legend')).toContainText('Spartans')
   await expect(page.locator('#legend')).toContainText('Immortals')
-  await page.getByRole('button', { name: 'Armies' }).click()
+  await page.locator('#legend-close').click()
+  await expect(page.locator('#legend')).toBeHidden()
 
   // the topography switch swaps in today's silted plain and is remembered in the hash
   await expect(page.locator('body')).toHaveAttribute('data-topo', '480bc')
+  await options.click()
   await page.getByRole('button', { name: 'Today' }).click()
   await expect(page.locator('body')).toHaveAttribute('data-topo', 'today')
   await expect.poll(() => page.evaluate(() => location.hash)).toContain('t=today')
@@ -70,6 +84,8 @@ test('the walkthrough steps through its scenes', async ({ page }) => {
 })
 
 test('the Blender assets load: soldiers, baked terrain, stills and the rendered film', async ({ page }) => {
+  // loads the GLB and both terrain textures into software WebGL: give it room
+  test.setTimeout(240_000)
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(e.message))
   await page.goto('thermopylae.html#s=3')
@@ -77,8 +93,9 @@ test('the Blender assets load: soldiers, baked terrain, stills and the rendered 
   await expect(page.locator('body')).toHaveAttribute('data-terrain', 'baked', { timeout: 60_000 })
   // a still exists for this step: it is either waiting for the view to settle or shown
   await expect(page.locator('body')).toHaveAttribute('data-still', /waiting|shown|none/, { timeout: 30_000 })
-  // the cinematic chip turns stills off and back on
-  const chip = page.getByRole('button', { name: 'Cinematic' })
+  // the cinematic switch in the Options menu turns stills off and back on
+  await page.getByRole('button', { name: 'Options' }).click()
+  const chip = page.getByRole('button', { name: 'Cinematic stills' })
   await chip.click()
   await expect(page.locator('body')).toHaveAttribute('data-still', 'off')
   await expect.poll(() => page.evaluate(() => location.hash)).toContain('c=0')

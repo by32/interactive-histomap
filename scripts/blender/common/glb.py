@@ -4,7 +4,8 @@ Blender's own exporter reorders vertices from run to run, which would churn a
 committed binary on every rebuild; this writes the same bytes for the same
 meshes. Vertices are split only where shading needs it (per-corner normals),
 colours are stored as normalised 8-bit RGBA, and the rig's attributes as the
-application-specific `_GAIT` and `_METAL`.
+application-specific `_GAIT`, `_METAL` and `_WEIGHT`; each node carries its
+extras (the rig's joints), which three.js reads into `userData`.
 """
 import json
 import struct
@@ -40,7 +41,7 @@ def mesh_arrays(obj):
     me.color_attributes["Col"].data.foreach_get("color", col)
     col = col.reshape(-1, 4)
     attrs = {}
-    for name in ("_gait", "_metal"):
+    for name in ("_gait", "_metal", "_weight"):
         a = np.empty(nv, dtype=np.float32)
         me.attributes[name].data.foreach_get("value", a)
         attrs[name] = a
@@ -51,7 +52,7 @@ def mesh_arrays(obj):
     # Canonical order: Blender's merge steps can number the same geometry
     # differently from run to run, so sort vertices by content and triangles by
     # their (rotated, winding-preserving) vertex triples before anything is summed.
-    perm = np.lexsort((attrs["_metal"], attrs["_gait"], col[:, 2], col[:, 1], col[:, 0], co[:, 2], co[:, 1], co[:, 0]))
+    perm = np.lexsort((attrs["_weight"], attrs["_metal"], attrs["_gait"], col[:, 2], col[:, 1], col[:, 0], co[:, 2], co[:, 1], co[:, 0]))
     rank = np.empty(nv, dtype=np.int64)
     rank[perm] = np.arange(nv)
     co, col = co[perm], col[perm]
@@ -91,12 +92,13 @@ def mesh_arrays(obj):
         "color": np.clip(np.round(col[verts] * 255), 0, 255).astype(np.uint8),
         "_GAIT": attrs["_gait"][verts],
         "_METAL": attrs["_metal"][verts],
+        "_WEIGHT": attrs["_weight"][verts],
         "indices": indices.astype(np.uint16 if len(order) < 65536 else np.uint32),
     }
 
 
 def write_glb(path, named_meshes):
-    """named_meshes: list of (name, mesh_arrays(...))"""
+    """named_meshes: list of (name, mesh_arrays(...), extras)"""
     blob = bytearray()
     views, accessors, meshes, nodes = [], [], [], []
 
@@ -115,18 +117,19 @@ def write_glb(path, named_meshes):
         accessors.append(acc)
         return len(accessors) - 1
 
-    for name, m in named_meshes:
+    for name, m, extras in named_meshes:
         attributes = {
             "POSITION": add(m["position"], FLOAT, "VEC3", ARRAY_BUFFER, bounds=True),
             "NORMAL": add(m["normal"], FLOAT, "VEC3", ARRAY_BUFFER),
             "COLOR_0": add(m["color"], UBYTE, "VEC4", ARRAY_BUFFER, normalized=True),
             "_GAIT": add(m["_GAIT"], FLOAT, "SCALAR", ARRAY_BUFFER),
             "_METAL": add(m["_METAL"], FLOAT, "SCALAR", ARRAY_BUFFER),
+            "_WEIGHT": add(m["_WEIGHT"], FLOAT, "SCALAR", ARRAY_BUFFER),
         }
         idx = m["indices"]
         indices = add(idx, USHORT if idx.dtype == np.uint16 else UINT, "SCALAR", ELEMENT_ARRAY_BUFFER)
         meshes.append({"name": name, "primitives": [{"attributes": attributes, "indices": indices}]})
-        nodes.append({"name": name, "mesh": len(meshes) - 1})
+        nodes.append({"name": name, "mesh": len(meshes) - 1, "extras": extras})
     while len(blob) % 4:
         blob.append(0)
     gltf = {

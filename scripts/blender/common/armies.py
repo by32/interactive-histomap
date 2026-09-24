@@ -13,6 +13,17 @@ from .coords import points_to_blender
 from .materials import soldier_material
 
 FIGURE_SIZE = 1.6  # soldier.ts; the rig's pivots are in these scaled units
+# the primitive figures' joints (soldier.ts RIG), metres before FIGURE_SIZE
+PRIMITIVE_RIG = {"hip": (0.78, 0.0), "shoulder": (1.325, 0.0), "hand": (0.36, 1.1125, 0.075)}
+
+
+def tint(motion_x):
+    """Each soldier's dye and complexion, as soldier.ts varies them: a stable
+    hash of his walking phase (float32, like the GPU)."""
+    m = np.asarray(motion_x, dtype=np.float32)
+    tone = 0.86 + 0.28 * np.mod(m * np.float32(0.7548777), 1.0)
+    warm = (np.mod(m * np.float32(0.5698403), 1.0) - 0.5) * 0.12
+    return tone[:, None] * np.stack([1.0 + warm, np.ones_like(warm), 1.0 - warm], axis=1)
 NEAR_METRES = 160.0  # figures closer to the camera use the detailed model
 
 
@@ -21,10 +32,12 @@ def _smoothstep(e0, e1, x):
     return t * t * (3 - 2 * t)
 
 
-def pose(pos, gait, battle, motion, t):
+def pose(pos, gait, battle, motion, t, rig=None, weight=None):
     """pos: (V,3) model vertices, already scaled by FIGURE_SIZE, three.js-local.
     gait: (V,). battle: (N,4), motion: (N,2) per figure. t: the rig's marchTime.
-    Returns (N,V,3) posed vertices, three.js-local."""
+    rig: the model's joints (hip, shoulder (y, z); hand (x, y, z), metres
+    before FIGURE_SIZE), the primitive figures' by default. weight: (V,), how
+    far each vertex follows its limb. Returns (N,V,3) posed vertices, three.js-local."""
     n = len(battle)
     mx = motion[:, 0:1]
     my = motion[:, 1:2]
@@ -50,20 +63,26 @@ def pose(pos, gait, battle, motion, t):
     z = np.broadcast_to(pos[None, :, 2], (n, len(pos))).copy()
     # weapons: spear (gait 3) shown until it breaks, sword (gait 4) after; both hidden in surrender
     weapon = g > 2.5
+    rig = rig or PRIMITIVE_RIG
+    hand = np.asarray(rig["hand"]) * FIGURE_SIZE
+    hip = np.asarray(rig["hip"]) * FIGURE_SIZE
+    shoulder = np.asarray(rig["shoulder"]) * FIGURE_SIZE
     if weapon.any():
-        hand = (0.576, 1.78, 0.12)
         visible = np.where(g > 3.5, bw, 1.0 - bw) * (1.0 - bz)
         k = np.where(weapon, visible, 1.0)
         x = hand[0] + (x - hand[0]) * k
         y = np.where(weapon, hand[1] + (y - hand[1]) * k, y)
         z = np.where(weapon, hand[2] + (z - hand[2]) * k, z)
-    # limbs swing about their joint: hips 1.25, weapon hand 1.78, shoulders 2.12
+    # limbs turn about their joint; weight softens the turn near the body
     jointed = g != 0
-    pivot = np.where(np.abs(g) < 1.5, 1.25, np.where(g > 2.5, 1.78, 2.12))
+    py = np.where(np.abs(g) < 1.5, hip[0], np.where(g > 2.5, hand[1], shoulder[0]))
+    pz = np.where(np.abs(g) < 1.5, hip[1], np.where(g > 2.5, hand[2], shoulder[1]))
+    if weight is not None:
+        angle = angle * weight[None, :]
     c, s = np.cos(angle), np.sin(angle)
-    yy = y - pivot
-    y = np.where(jointed, c * yy + s * z + pivot, y)
-    z = np.where(jointed, -s * yy + c * z, z)
+    yy, zz = y - py, z - pz
+    y = np.where(jointed, c * yy + s * zz + py, y)
+    z = np.where(jointed, -s * yy + c * zz + pz, z)
     # step bob, a little sway of the upper body, lunging when engaged
     y = y + (1 - np.cos(t * 12.4 + mx * 2.0)) * 0.035 * my
     z = z + np.sin(t * 1.5 + mx) * 0.009 * _smoothstep(0.9, 2.4, pos[None, :, 1]) * (1 - by)
@@ -92,6 +111,10 @@ class Model:
         me.attributes["_gait"].data.foreach_get("value", self.gait)
         self.metal = np.empty(nv, dtype=np.float32)
         me.attributes["_metal"].data.foreach_get("value", self.metal)
+        self.weight = np.ones(nv, dtype=np.float32)
+        if "_weight" in me.attributes:
+            me.attributes["_weight"].data.foreach_get("value", self.weight)
+        self.rig = obj["rig"].to_dict() if "rig" in obj else None
         self.col = np.empty(nv * 4, dtype=np.float32)
         me.color_attributes["Col"].data.foreach_get("color", self.col)
         self.col = self.col.reshape(-1, 4)
@@ -109,7 +132,7 @@ def figures_mesh(name, model, figs, t):
     """figs: (N, 11) exported figure rows for the figures using this model."""
     heading = figs[:, 3]
     scale = figs[:, 4]
-    posed = pose(model.pos, model.gait, figs[:, 5:9], figs[:, 9:11], t)  # (N,V,3)
+    posed = pose(model.pos, model.gait, figs[:, 5:9], figs[:, 9:11], t, model.rig, model.weight)  # (N,V,3)
     c, s = np.cos(heading)[:, None], np.sin(heading)[:, None]
     x = c * posed[:, :, 0] + s * posed[:, :, 2]  # rotation about +y by heading
     z = -s * posed[:, :, 0] + c * posed[:, :, 2]
@@ -126,7 +149,12 @@ def figures_mesh(name, model, figs, t):
     me.polygons.foreach_set("use_smooth", np.tile(model.smooth, n))
     me.update()
     col = me.color_attributes.new("Col", "FLOAT_COLOR", "POINT")
-    col.data.foreach_set("color", np.tile(model.col, (n, 1)).ravel())
+    # the page's per-soldier variation: dyes and skin fully, bronze less
+    k = tint(figs[:, 9])[:, None, :]
+    strength = (1.0 - 0.7 * model.metal)[None, :, None]
+    rgb = model.col[None, :, :3] * (1.0 + (k - 1.0) * strength)
+    rgba = np.concatenate([rgb, np.broadcast_to(model.col[None, :, 3:], rgb.shape[:2] + (1,))], axis=2)
+    col.data.foreach_set("color", rgba.astype(np.float32).ravel())
     me.attributes.new("_metal", "FLOAT", "POINT").data.foreach_set("value", np.tile(model.metal, n))
     obj = bpy.data.objects.new(name, me)
     obj.data.materials.append(soldier_material())

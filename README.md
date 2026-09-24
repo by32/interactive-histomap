@@ -87,11 +87,21 @@ npm run blender:selftest   # Cycles + OpenImageDenoise, the glTF exporter, camer
 npm run build:models       # re-model the soldiers -> public/thermopylae/models/soldiers.glb
 ```
 
-`scripts/blender/models.py` builds a hoplite, a Persian spearman and an Immortal procedurally,
-in every formation's colourway at two levels of detail. The models keep the contract of the
-page's vertex rig (`src/thermopylae/soldier.ts`): the same joint heights, `gait` groups for legs,
-arms, shield, spear and sword, and a `metal` value per vertex, so the walking and combat
-animation is unchanged. The primitive figures remain as a fallback until the models load.
+Every soldier is built on a real body: Blender Studio's realistic male base mesh (CC0, from the
+[Human Base Meshes](https://www.blender.org/download/demo/asset-bundles/) bundle, downloaded into
+`.cache/assets/` and checked by SHA-256; see `public/thermopylae/models/SOURCES.md`).
+`scripts/blender/common/body.py` poses it in numpy, with the right hand on the spear and the left
+forearm across the body behind the shield. `common/dress.py` cuts clothing and armour from the
+body's own surface, so sleeves, greaves and trousers move with the limbs beneath them, removes
+the skin they cover, and ray-casts ambient occlusion into the vertex colours.
+`scripts/blender/models.py` dresses a hoplite, a Persian spearman and an Immortal for every
+formation at two levels of detail (at most 2,400 and 500 triangles). Dress is naturalistic and
+varies from man to man; a formation shows in one muted accent (the shield's blazon, the tiara,
+the robe's borders), which the legend uses as its key. The models carry the page's vertex rig
+(`src/thermopylae/soldier.ts`): `gait` groups for legs, arms, shield, spear and sword, a
+`metal` and a `weight` value per vertex (soft shoulders and hips), and the body's joints, which
+replace the rig's pivots when the models load. The primitive figures remain as a fallback until
+then.
 `npm run test:film` checks the models' attributes, triangle budgets and that the armies still
 sample the film with them. Set `$BLENDER` to a Blender binary (for example a GPU machine's
 install) to run the same scripts under full Blender instead of the Python module.

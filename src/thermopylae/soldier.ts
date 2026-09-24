@@ -3,8 +3,35 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import type { GroupDef } from './script'
 
 // Forms follow late-Archaic Greek equipment and Herodotus 7.61 for Persian
-// dress. Colours identify formations; they are not documented uniforms.
+// dress. These primitive figures show until the Blender models load.
 export const FIGURE_SIZE = 1.6
+
+/**
+ * The joints the rig turns limbs about, in the page's scaled units: hips and
+ * shoulders (y, z) and the weapon hand (x, y, z). These are the primitive
+ * figures' joints; `useRig` swaps in the Blender models' own once they load.
+ */
+export const RIG = {
+  rigHip: { value: new THREE.Vector2(0.78, 0).multiplyScalar(FIGURE_SIZE) },
+  rigShoulder: { value: new THREE.Vector2(1.325, 0).multiplyScalar(FIGURE_SIZE) },
+  rigHand: { value: new THREE.Vector3(0.36, 1.1125, 0.075).multiplyScalar(FIGURE_SIZE) },
+}
+/**
+ * A formation's accent as the Blender models wear it (models.py `muted`): its
+ * legend colour desaturated and darkened to a plausible dye.
+ */
+export function accentColour(hex: number) {
+  const c = new THREE.Color(hex)
+  const grey = c.r * 0.2126 + c.g * 0.7152 + c.b * 0.0722
+  return new THREE.Color(grey + (c.r - grey) * 0.72, grey + (c.g - grey) * 0.72, grey + (c.b - grey) * 0.72).multiplyScalar(0.72)
+}
+
+export interface RigJoints { hip: number[]; shoulder: number[]; hand: number[] }
+export function useRig(joints: RigJoints) {
+  RIG.rigHip.value.fromArray(joints.hip).multiplyScalar(FIGURE_SIZE)
+  RIG.rigShoulder.value.fromArray(joints.shoulder).multiplyScalar(FIGURE_SIZE)
+  RIG.rigHand.value.fromArray(joints.hand).multiplyScalar(FIGURE_SIZE)
+}
 const BRONZE = 0xb59057
 const DARK_BRONZE = 0x78613e
 const SKIN = 0xb38463
@@ -18,6 +45,7 @@ function part(g: THREE.BufferGeometry, colour: number, gait = 0, metal = 0) {
   g.setAttribute('color', new THREE.BufferAttribute(colours, 3))
   g.setAttribute('gait', new THREE.BufferAttribute(new Float32Array(n).fill(gait), 1))
   g.setAttribute('metal', new THREE.BufferAttribute(new Float32Array(n).fill(metal), 1))
+  g.setAttribute('weight', new THREE.BufferAttribute(new Float32Array(n).fill(1), 1))
   return g.index ? g.toNonIndexed() : g
 }
 
@@ -123,10 +151,15 @@ function rigShader(vertex: string) {
     vertex = vertex.replace('#include <common>', `#include <common>
       attribute float gait;
       attribute float metal;
+      attribute float weight;
       attribute vec2 motion;
       attribute vec4 battle;
       varying float vMetal;
+      varying vec3 vTint;
       uniform float marchTime;
+      uniform vec2 rigHip;
+      uniform vec2 rigShoulder;
+      uniform vec3 rigHand;
       mat2 joint(float a) { return mat2(cos(a), -sin(a), sin(a), cos(a)); }
       float jointAngle() {
         float stride = sin(marchTime * 6.2 + motion.x);
@@ -137,20 +170,24 @@ function rigShader(vertex: string) {
         return abs(gait) < 1.5 ? stride * gait * .42 * motion.y : -stride * sign(gait) * .12 * motion.y;
       }`)
     vertex = vertex.replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>
-      if (gait != 0.0) objectNormal.yz = joint(jointAngle()) * objectNormal.yz;
+      if (gait != 0.0) objectNormal.yz = joint(jointAngle() * weight) * objectNormal.yz;
       objectNormal.yz = joint(battle.y * 1.50) * objectNormal.yz;`)
     vertex = vertex.replace('#include <begin_vertex>', `#include <begin_vertex>
       vMetal = metal;
+      // each soldier's own dye and complexion: a stable hash of his walking phase
+      float tone = .86 + .28 * fract(motion.x * .7548777);
+      float warm = (fract(motion.x * .5698403) - .5) * .12;
+      vTint = tone * vec3(1.0 + warm, 1.0, 1.0 - warm);
       if (gait > 2.5) {
-        vec3 hand = vec3(.576,1.78,.12);
         float visibleWeapon = gait > 3.5 ? battle.w : 1.0 - battle.w;
-        transformed = hand + (transformed - hand) * visibleWeapon * (1.0-battle.z);
+        transformed = rigHand + (transformed - rigHand) * visibleWeapon * (1.0-battle.z);
       }
       if (gait != 0.0) {
-        float pivot = abs(gait) < 1.5 ? 1.25 : gait > 2.5 ? 1.78 : 2.12;
-        transformed.y -= pivot;
-        transformed.yz = joint(jointAngle()) * transformed.yz;
-        transformed.y += pivot;
+        // limbs turn about their joint; weight softens the turn near the body
+        vec2 pivot = abs(gait) < 1.5 ? rigHip : gait > 2.5 ? rigHand.yz : rigShoulder;
+        transformed.yz -= pivot;
+        transformed.yz = joint(jointAngle() * weight) * transformed.yz;
+        transformed.yz += pivot;
       }
       transformed.y += (1.0 - cos(marchTime * 12.4 + motion.x * 2.0)) * .035 * motion.y;
       transformed.z += sin(marchTime * 1.5 + motion.x) * .009 * smoothstep(.9, 2.4, position.y) * (1.0-battle.y);
@@ -162,8 +199,8 @@ function rigShader(vertex: string) {
 
 export function soldierDepthMaterial(time: {value:number}) {
   const material=new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking})
-  material.onBeforeCompile=shader=>{shader.uniforms.marchTime=time;shader.vertexShader=rigShader(shader.vertexShader)}
-  material.customProgramCacheKey=()=> 'thermopylae-battle-depth-v3'
+  material.onBeforeCompile=shader=>{Object.assign(shader.uniforms,RIG,{marchTime:time});shader.vertexShader=rigShader(shader.vertexShader)}
+  material.customProgramCacheKey=()=> 'thermopylae-battle-depth-v4'
   return material
 }
 
@@ -171,12 +208,14 @@ export function soldierDepthMaterial(time: {value:number}) {
 export function soldierMaterial(time: { value: number }) {
   const material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.83, metalness: 0.1 })
   material.onBeforeCompile = (shader) => {
-    shader.uniforms.marchTime = time
+    Object.assign(shader.uniforms, RIG, { marchTime: time })
     shader.vertexShader = rigShader(shader.vertexShader)
-    shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vMetal;')
+    shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vMetal;\nvarying vec3 vTint;')
+    // dyes and skin vary from man to man; bronze a little less
+    shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb *= mix(vec3(1.0), vTint, 1.0 - .7 * vMetal);')
     shader.fragmentShader = shader.fragmentShader.replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(.89, .38, vMetal);')
     shader.fragmentShader = shader.fragmentShader.replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = vMetal;')
   }
-  material.customProgramCacheKey = () => 'thermopylae-battle-v3'
+  material.customProgramCacheKey = () => 'thermopylae-battle-v4'
   return material
 }

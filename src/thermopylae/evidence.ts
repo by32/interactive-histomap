@@ -49,19 +49,6 @@ export function setupEvidence() {
     if (!dialog.open) { dialog.showModal(); document.dispatchEvent(new Event('evidence-open')) }
   }
   document.querySelector('#evidence-open')!.addEventListener('click', open)
-  document.querySelector('#artifact-card')!.addEventListener('click', open)
   document.querySelector('#evidence-close')!.addEventListener('click', () => dialog.close())
   dialog.addEventListener('click', e => { if (e.target === dialog) dialog.close() })
-  let previous = -1
-  return (stage: number) => {
-    const index = stage === 6 || stage === 7 ? 2 : stage >= 8 ? 0 : 1
-    if (index === previous) return
-    previous = index
-    const item = EVIDENCE[index]
-    const img = document.querySelector<HTMLImageElement>('#artifact-image')!
-    img.src = base + item.image
-    img.alt = item.short
-    document.querySelector('#artifact-name')!.textContent = item.short
-    document.querySelector('#artifact-date')!.textContent = item.date
-  }
 }
