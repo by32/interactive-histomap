@@ -63,7 +63,7 @@ if (gpu) {
   composer.addPass(new UnrealBloomPass(new THREE.Vector2(1,1),.19,.5,1.05))
   composer.addPass(new OutputPass())
 }
-const updateEvidence = setupEvidence()
+setupEvidence()
 
 const controls = new OrbitControls(camera, canvas)
 controls.enabled = Boolean(gpu)
@@ -299,7 +299,6 @@ function go(i: number, fly = true) {
   titleEl.textContent = stage.title
   textEl.innerHTML = stage.text
   counterEl.textContent = `${String(idx + 1).padStart(2, '0')} / ${STAGES.length}`
-  updateEvidence(idx)
   Array.from(dotsEl.children).forEach((d, k) => d.classList.toggle('on', k === idx))
   prevBtn.disabled = idx === 0
   nextBtn.disabled = idx === STAGES.length - 1
@@ -321,12 +320,13 @@ function go(i: number, fly = true) {
 
 prevBtn.addEventListener('click', () => go(current - 1))
 nextBtn.addEventListener('click', () => go(current + 1))
-autoBtn.addEventListener('click', () => {
-  autoplay = !autoplay
-  autoBtn.classList.toggle('on', autoplay)
-  autoBtn.textContent = autoplay ? '⏸ auto' : '▶ auto'
+function setAutoplay(on: boolean) {
+  autoplay = on
+  autoBtn.classList.toggle('on', on)
+  autoBtn.setAttribute('aria-pressed', String(on))
   autoTimer = 0
-})
+}
+autoBtn.addEventListener('click', () => setAutoplay(!autoplay))
 $('#refly').addEventListener('click', () => {
   if (!gpu) (renderer as AtlasRenderer).resetView()
   if (filmActive) {
@@ -382,13 +382,32 @@ $('#labels-toggle').addEventListener('click', (e) => {
 $('#legend-toggle').addEventListener('click', (e) => {
   const open = $('#legend').classList.toggle('open')
   ;(e.currentTarget as HTMLElement).classList.toggle('on', open)
+  if (open) setMenu(false)
 })
-$('#panel-toggle').addEventListener('click', () => {
-  $('#panel').classList.toggle('collapsed')
+$('#legend-close').addEventListener('click', () => $('#legend-toggle').click())
+
+/* ---------- options: everything beyond the story and playback ---------- */
+const menu = $('#menu')
+const menuToggle = $('#menu-toggle')
+function setMenu(open: boolean) {
+  menu.hidden = !open
+  menuToggle.classList.toggle('on', open)
+  menuToggle.setAttribute('aria-expanded', String(open))
+}
+menuToggle.addEventListener('click', () => setMenu(Boolean(menu.hidden)))
+// actions close the menu; switches leave it open to try another
+for (const el of menu.querySelectorAll('.menu-link')) el.addEventListener('click', () => setMenu(false))
+document.addEventListener('pointerdown', (e) => {
+  if (!menu.hidden && !(e.target as HTMLElement).closest('#menu, #menu-toggle')) setMenu(false)
 })
 
 window.addEventListener('keydown', (e) => {
   if (document.querySelector('dialog[open]')) return
+  if (e.key === 'Escape' && !menu.hidden) {
+    setMenu(false)
+    menuToggle.focus()
+    return
+  }
   // Escape must also work while the scrubber or speed selector has focus.
   if (filmActive && e.key === 'Escape') {
     e.preventDefault()
@@ -410,7 +429,7 @@ window.addEventListener('keydown', (e) => {
     } else if (e.key === ' ' && (e.target as HTMLElement).tagName !== 'BUTTON') {
       e.preventDefault()
       toggleFilm()
-    } else if (e.key === 'r') $('#film-replay').click()
+    } else if (e.key === 'r') replayFilm()
     else if (e.key === 'l') $('#labels-toggle').click()
     else if (e.key === 't') {
       const nextModern = !modern
@@ -429,7 +448,7 @@ window.addEventListener('keydown', (e) => {
   else if (e.key === 't') setModern(!modern)
   else if (e.key === ' ' && (e.target as HTMLElement).tagName !== 'BUTTON') {
     e.preventDefault()
-    autoBtn.click()
+    setAutoplay(!autoplay)
   }
 })
 
@@ -452,36 +471,25 @@ const scrub = $<HTMLInputElement>('#film-scrub')
 const playFilmBtn = $<HTMLButtonElement>('#film-play')
 const filmCamera = new FilmCamera()
 const formatTime = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds) % 60).padStart(2,'0')}`
-const chapterSelect = $<HTMLSelectElement>('#film-jump')
 scrub.max = String(FILM_DURATION)
 
-FILM_CHAPTERS.forEach((chapter, index) => {
-  const button = document.createElement('button')
-  button.textContent = chapter.label
-  button.dataset.number = String(index+1).padStart(2, '0')
-  button.title = `Jump to ${chapter.time} seconds: ${chapter.title}`
-  const option = document.createElement('option')
-  option.value = String(index)
-  option.textContent = `${String(index+1).padStart(2,'0')} · ${chapter.label}`
-  chapterSelect.appendChild(option)
-  button.addEventListener('click', () => {
-    film.playing = false
-    film.seek(chapter.time)
-    followCamera = !reducedMotion.matches
-    filmChapter = index - 1
-    renderFilm(true)
-  })
-  $('#film-chapters').appendChild(button)
-})
-chapterSelect.addEventListener('change', () => {
+function jumpToChapter(index: number) {
+  const chapter = FILM_CHAPTERS[Math.max(0, Math.min(FILM_CHAPTERS.length - 1, index))]
   film.playing = false
-  film.seek(FILM_CHAPTERS[Number(chapterSelect.value)].time)
+  film.seek(chapter.time)
   followCamera = !reducedMotion.matches
   renderFilm(true)
+}
+const chapterAt = (time: number) => FILM_CHAPTERS.findLastIndex((chapter) => time >= chapter.time)
+// back goes to the start of this chapter, or to the previous one when already there
+$('#film-prev').addEventListener('click', () => {
+  const index = chapterAt(film.time)
+  jumpToChapter(film.time - FILM_CHAPTERS[index].time > 2 ? index : index - 1)
 })
+$('#film-next').addEventListener('click', () => jumpToChapter(chapterAt(film.time) + 1))
 
 function updateFilmControls() {
-  playFilmBtn.textContent = film.playing ? '⏸ Pause' : film.time === FILM_DURATION ? '▶ Replay' : '▶ Play'
+  playFilmBtn.textContent = film.playing ? '❚❚' : film.time === FILM_DURATION ? '↺' : '▶'
   playFilmBtn.setAttribute('aria-label', film.playing ? 'Pause film' : film.time === FILM_DURATION ? 'Replay film from beginning' : 'Play film')
   playFilmBtn.setAttribute('aria-pressed', String(film.playing))
   const follow = $('#film-follow')
@@ -516,23 +524,14 @@ function renderFilm(force = false) {
     }
     filmChapter = chapterIndex
     $('#film-number').textContent = `${String(chapterIndex+1).padStart(2, '0')} / ${FILM_CHAPTERS.length}`
-    chapterSelect.value = String(chapterIndex)
-    updateEvidence(chapter.stage)
     $('#film-kicker').textContent = STAGES[chapter.stage].kicker
     $('#film-title').textContent = chapter.title
     $('#film-caption').textContent = chapter.caption
     const source = $<HTMLAnchorElement>('#film-source')
     source.href = `https://lexundria.com/hdt/${chapter.source}/mcly`
     source.textContent = `Herodotus ${chapter.source} ↗`
-    Array.from($('#film-chapters').children).forEach((el, i) => {
-      if (i === chapterIndex) el.setAttribute('aria-current', 'step')
-      else el.removeAttribute('aria-current')
-    })
     document.body.dataset.stage = STAGES[chapter.stage].id
     document.body.dataset.chapter = chapter.id
-    const activeButton = $('#film-chapters').children[chapterIndex] as HTMLElement
-    const chapterNav = $('#film-chapters')
-    chapterNav.scrollLeft = Math.max(0,activeButton.offsetLeft-chapterNav.offsetLeft-chapterNav.clientWidth/2+activeButton.clientWidth/2)
   }
   scrub.value = String(film.time)
   scrub.style.setProperty('--progress', `${film.time / FILM_DURATION * 100}%`)
@@ -557,9 +556,7 @@ function enterFilm(time = 0, play = true) {
     filmPrepared = true
   }
   filmActive = true
-  autoplay = false
-  autoBtn.classList.remove('on')
-  autoBtn.textContent = '▶ auto'
+  setAutoplay(false)
   camK = lightK = 1
   controls.update()
   controls.enableDamping = false
@@ -621,12 +618,12 @@ function toggleFilm() {
 $('#watch-film').addEventListener('click', () => { enterFilm(); playFilmBtn.focus({ preventScroll: true }) })
 $('#exit-film').addEventListener('click', exitFilm)
 playFilmBtn.addEventListener('click', toggleFilm)
-$('#film-replay').addEventListener('click', () => { followCamera = !reducedMotion.matches; film.seek(0); film.play(); renderFilm(true) })
+function replayFilm() { followCamera = !reducedMotion.matches; film.seek(0); film.play(); renderFilm(true) }
 setupRenderedFilm(() => film.time, () => { film.playing = false; renderFilm(true) })
 $('#film-follow').addEventListener('click', () => { followCamera = !followCamera; renderFilm(true) })
 $('#film-speed').addEventListener('change', (event) => { film.speed = Number((event.target as HTMLSelectElement).value) })
 scrub.addEventListener('input', () => { film.playing = false; film.seek(Number(scrub.value)); renderFilm(true) })
-document.addEventListener('evidence-open', () => { if (filmActive) { film.playing = false; updateFilmControls() } autoplay = false; autoBtn.classList.remove('on'); autoBtn.textContent = '▶ auto' })
+document.addEventListener('evidence-open', () => { if (filmActive) { film.playing = false; updateFilmControls() } setAutoplay(false) })
 document.addEventListener('visibilitychange', () => { if (document.hidden && filmActive) { film.playing = false; updateFilmControls() } })
 
 /* ---------- legend ---------- */
@@ -640,9 +637,6 @@ for (const g of GROUPS) {
   legendList.appendChild(li)
 }
 $('#figure-scale').textContent = String(FIGURE_SCALE)
-
-/* ---------- compass ---------- */
-const needle = $('#needle')
 
 /* ---------- loop ---------- */
 function resize() {
@@ -659,7 +653,6 @@ function resize() {
 const stillEye = new THREE.Vector3()
 const stillTarget = new THREE.Vector3()
 const timer = new THREE.Timer()
-const camDir = new THREE.Vector3()
 let environmentTime = 0
 let qualitySeconds = 0
 let qualityFrames = 0
@@ -697,14 +690,9 @@ function frame() {
     autoTimer += dt
     if (autoTimer > AUTO_S) {
       if (current < STAGES.length - 1) go(current + 1)
-      else autoBtn.click()
+      else setAutoplay(false)
     }
   }
-
-  camera.getWorldDirection(camDir)
-  // north is −z: rotate the needle so it points toward −z on screen
-  const az = Math.atan2(camDir.x, -camDir.z)
-  needle.style.transform = `rotate(${(-az * 180) / Math.PI}deg)`
 
   if (gpu) updateLabels()
   else (renderer as AtlasRenderer).showLabels = labelsOn
