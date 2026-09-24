@@ -368,7 +368,7 @@ def persian(b, group, detail, immortal=False):
         # a soft felt tiara in the formation's colour, with flaps over the chin and neck
         cap = head & ~face & ((y > 1.64) | (np.abs(x) > 0.055) | (z < HEAD_Z))
         peak = np.stack([np.zeros_like(y), np.maximum(y - 1.68, 0) * 1.2, -np.maximum(y - 1.68, 0) * 0.4], axis=1)
-        fig.add(b.shell(cap, 0.02, accent, grow=peak))
+        fig.add(b.shell(cap, 0.02, accent * 0.62, grow=peak))  # felt, dyed deeper than skin
     if detail:
         fig.add(b.skirt(1.005, 0.965, LEATHER, pad=0.045, flare=0.0, rings=2, segments=20))  # belt
         fig.add(b.shell(head & (z > HEAD_Z) & (y > 1.47) & (y < 1.57) & (np.abs(x) < 0.075), 0.012, HAIR))  # beard
