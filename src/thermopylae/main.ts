@@ -126,7 +126,9 @@ scene.add(armies.root)
 // Cycles stills of each step, crossfaded in once the live view settles on them
 const cinematic = new Cinematic($<HTMLPictureElement>('#still'))
 cinematic.enabled = new URLSearchParams(location.hash.slice(1)).get('c') !== '0'
-document.body.dataset.soldiers = 'primitive'
+// No one sees the primitive figures unless the models fail to load
+document.body.dataset.soldiers = 'loading'
+armies.root.visible = false
 loadSoldierModels(`${import.meta.env.BASE_URL}thermopylae/models/soldiers.glb`)
   .then(({ models, rig }) => {
     useRig(rig)
@@ -134,9 +136,10 @@ loadSoldierModels(`${import.meta.env.BASE_URL}thermopylae/models/soldiers.glb`)
     document.body.dataset.soldiers = 'blender'
   })
   .catch((err) => {
-    console.warn('soldier models unavailable, keeping primitive figures', err)
+    console.warn('soldier models unavailable, showing primitive figures', err)
     document.body.dataset.soldiers = 'failed'
   })
+  .finally(() => { armies.root.visible = true })
 const battleEffects = new BattleEffects()
 scene.add(battleEffects.root)
 const torchLights = Array.from({length:3}, () => new THREE.PointLight(0xffa34b,0,38,1.7))
