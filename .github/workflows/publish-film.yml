@@ -1,0 +1,55 @@
+# Publishes a film that a render-film run has already rendered and stitched:
+# takes its `thermopylae-film` artifact, puts it on the thermopylae-film
+# release, then starts the Pages deploy, which serves the release with the
+# site. For a run started without "publish" ticked, or to go back to an
+# earlier render while its artifact is kept (90 days). Run it from the Actions tab.
+name: Publish the rendered Thermopylae film
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'render-film run to publish (empty for the latest successful one)'
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: render-film
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # the release
+      actions: write   # read the run's artifact, start the deploy
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Choose the render run
+        id: run
+        run: |
+          run="${{ inputs.run_id }}"
+          if [ -z "$run" ]; then
+            run=$(gh run list --workflow render-film.yml --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+          fi
+          if [ -z "$run" ]; then echo "no successful render-film run to publish"; exit 1; fi
+          echo "publishing the film from run $run"
+          echo "id=$run" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@v4
+        with:
+          name: thermopylae-film
+          run-id: ${{ steps.run.outputs.id }}
+          github-token: ${{ github.token }}
+          path: film
+      - name: Publish the thermopylae-film release
+        run: |
+          ls -l film
+          test -f film/film.json
+          gh release view thermopylae-film >/dev/null 2>&1 || gh release create thermopylae-film --title "Thermopylae film (Cycles render)" --notes "Rendered by the render-film workflow." --latest=false
+          gh release upload thermopylae-film film/* --clobber
+      - name: Deploy the site with it
+        run: gh workflow run deploy.yml --ref "${{ github.event.repository.default_branch }}"
