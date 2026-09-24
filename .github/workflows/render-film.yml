@@ -1,7 +1,8 @@
 # Renders the Thermopylae battle film in Blender (Cycles) on a farm of
 # GitHub-hosted runners: the frames are split into ranges, each rendered on its
-# own runner, then stitched into MP4 and WebM and published as a release that
-# the Pages deploy serves alongside the site. Run it from the Actions tab.
+# own runner, then stitched into MP4 and WebM, published as a release and
+# deployed with the site. Run it from the Actions tab. A cut (frames set) is
+# never published; publish-film.yml publishes any finished run's film later.
 #
 # A full 192 s film at 1280x720 is 4,608 frames at about a minute each on a
 # 4-core runner. 40 shards of ~115 frames take about 2 h apiece, 20 at a time,
@@ -26,9 +27,9 @@ on:
         description: 'Cycles samples per pixel (adaptive, denoised)'
         default: '20'
       publish:
-        description: 'Publish the stitched film as the thermopylae-film release'
+        description: 'Publish the film as the thermopylae-film release and deploy the site (whole-film runs only)'
         type: boolean
-        default: false
+        default: true
 
 permissions:
   contents: read
@@ -102,7 +103,8 @@ jobs:
     needs: [plan, render]
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write  # the release
+      actions: write   # start the deploy
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -127,9 +129,14 @@ jobs:
           name: thermopylae-film
           path: .cache/thermopylae/film/out
       - name: Publish the thermopylae-film release
-        if: ${{ inputs.publish }}
+        if: ${{ inputs.publish && inputs.frames == '' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release view thermopylae-film >/dev/null 2>&1 || gh release create thermopylae-film --title "Thermopylae film (Cycles render)" --notes "Rendered by the render-film workflow from ${GITHUB_SHA}." --latest=false
           gh release upload thermopylae-film .cache/thermopylae/film/out/* --clobber
+      - name: Deploy the site with the new film
+        if: ${{ inputs.publish && inputs.frames == '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy.yml --ref "${{ github.event.repository.default_branch }}"

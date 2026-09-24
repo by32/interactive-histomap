@@ -134,9 +134,10 @@ Marching columns hold at the moment the still was taken.
 battle film in Cycles on a farm of GitHub-hosted runners. It is manually dispatched from the
 Actions tab. The 4,608 frames are split into 40 ranges, rendered 20 at a time (about a
 minute a frame on a 4-core runner, with the procedural ground baked to textures first and a
-lighter path budget than the stills; about 4 h for the whole film), then stitched into MP4 and WebM with a poster and chapter track, and optionally published as the
-`thermopylae-film` release. The Pages deploy downloads that release into the site, and the film
-controls then offer a **Cycles render** button. Try a short cut first (frames `1440-1679`, the
+lighter path budget than the stills; about 4 h for the whole film), then stitched into MP4 and WebM with a poster and chapter track, published as the
+`thermopylae-film` release and deployed with the site (a cut with `frames` set is never
+published; `publish-film.yml` publishes a finished run's film later). The Pages deploy downloads
+that release into the site, and the film controls then offer a **Cycles render** button. Try a short cut first (frames `1440-1679`, the
 night march, with 4 shards). On a machine with a GPU the same frames render locally:
 
 ```sh

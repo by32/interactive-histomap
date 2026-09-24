@@ -43,8 +43,13 @@ git commit -m "Add Pages deploy workflow" && git push
 
 `render-film.yml` is a manually triggered workflow (Actions → *Render the Thermopylae film* →
 *Run workflow*). GitHub only lists a `workflow_dispatch` workflow once it is on the default
-branch. With **publish** ticked it creates or updates the `thermopylae-film` release. The
-deploy workflow downloads that release into `dist/thermopylae/film/` on every build, so the
-video is served from the site itself. It plays in every browser, and the page shows its
-**Cycles render** button once `film.json` is present. Re-run the deploy, or push any
-commit, after publishing a new render.
+branch. A whole-film run (frames left empty) with **publish** ticked, the default, creates
+or updates the `thermopylae-film` release and then starts the Pages deploy. A cut (frames
+set) is never published. The deploy workflow downloads that release into
+`dist/thermopylae/film/` on every build, so the video is served from the site itself. It plays
+in every browser, and the page shows its **Cycles render** button once `film.json` is present.
+
+To publish a film that has already been rendered, for a run started without **publish** or
+to go back to an earlier render while its artifact is kept (90 days), run *Publish the
+rendered Thermopylae film* (`publish-film.yml`). Give it the render run's id, or leave it
+empty for the latest successful run. It publishes that run's film and deploys the site.
