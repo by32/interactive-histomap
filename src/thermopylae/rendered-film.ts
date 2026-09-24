@@ -28,8 +28,9 @@ export function setupRenderedFilm(currentTime: () => number, onOpen: () => void)
     // checking it lays out every formation of the film: wait for a quiet moment
     .then((f) => new Promise<RenderedFilm | null>((resolve) => 'requestIdleCallback' in window ? requestIdleCallback(() => resolve(f)) : setTimeout(() => resolve(f))))
     .then((f) => {
+      if (!f) return
       // a render of an earlier version of the battle is not offered
-      if (!f || f.fingerprint !== filmFingerprint()) return
+      if (f.fingerprint !== filmFingerprint()) { document.body.dataset.renderedFilm = 'stale'; return }
       film = f
       video.poster = `${BASE}${f.poster}`
       for (const s of f.sources) {

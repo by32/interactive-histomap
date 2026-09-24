@@ -273,7 +273,8 @@ export class Armies {
       geom.setAttribute('motion', new THREE.InstancedBufferAttribute(motion, 2))
       geom.setAttribute('battle', new THREE.InstancedBufferAttribute(new Float32Array(def.count * 4), 4))
       const mesh = new THREE.InstancedMesh(geom, this.material, def.count)
-      mesh.frustumCulled = false
+      // culled by the bounds of where its figures stand, refreshed as they move
+      mesh.boundingSphere = new THREE.Sphere()
       mesh.name = def.id
       const seed = seedOf(gi)
       const hidden = layoutFor(def, { kind: 'hidden' }, seed)
@@ -448,6 +449,7 @@ export class Armies {
     const scl = new THREE.Vector3()
     const up = new THREE.Vector3(0, 1, 0)
     const pose = new THREE.Vector4()
+    const lo = new THREE.Vector3(), hi = new THREE.Vector3()
     for (const a of this.armies) {
       const { from, to, mesh } = a
       const k = this.filmProgress === null ? staged : a.k
@@ -478,6 +480,7 @@ export class Armies {
         continue
       }
       mesh.count = n
+      lo.set(Infinity, Infinity, Infinity); hi.set(-Infinity, -Infinity, -Infinity)
       for (let i = 0; i < n; i++) {
         const o = i * 4
         // hidden layouts sit far away: don't drag figures across the map when appearing
@@ -518,6 +521,7 @@ export class Armies {
         scl.setScalar(s)
         m.compose(pos, q, scl)
         mesh.setMatrixAt(i, m)
+        lo.min(pos); hi.max(pos)
         if (a.def.id === 'immortals') {
           const t = this.torches.geometry.attributes.position as THREE.BufferAttribute
           // every third figure carries a torch, held at shoulder height
@@ -527,6 +531,9 @@ export class Armies {
         }
       }
       a.matrices.set(mesh.instanceMatrix.array)
+      // around every figure, with room for his height, spear and stride
+      mesh.boundingSphere!.center.addVectors(lo, hi).multiplyScalar(.5)
+      mesh.boundingSphere!.radius = lo.distanceTo(hi) / 2 + 6 * FIGURE_SIZE
       mesh.instanceMatrix.needsUpdate = true
       motion.needsUpdate = true
       battle.needsUpdate = true

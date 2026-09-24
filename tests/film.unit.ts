@@ -74,6 +74,25 @@ test('rewinding restores identical troop matrices, gait and torches', () => {
   expect(Array.from(armies.torches.geometry.getAttribute('position').array)).toEqual(torchBefore)
 })
 
+test('each army is culled only when every one of its figures is out of view', () => {
+  const armies = new Armies()
+  armies.prepareFilm(UNIT_KEYS)
+  const matrix = new THREE.Matrix4(), position = new THREE.Vector3()
+  for (const time of [0, 20, 40, 66, 90, 100, 125, 150, 170, 185]) {
+    armies.sampleFilm(time)
+    for (const mesh of armies.root.children.filter((c) => c instanceof THREE.InstancedMesh && !c.name.endsWith('-detail')) as THREE.InstancedMesh[]) {
+      expect(mesh.frustumCulled).toBe(true)
+      // how close the figure nearest the edge comes to it, inside (negative)
+      let edge = -Infinity
+      for (let i = 0; i < mesh.count; i++) {
+        mesh.getMatrixAt(i, matrix)
+        edge = Math.max(edge, mesh.boundingSphere!.distanceToPoint(position.setFromMatrixPosition(matrix)))
+      }
+      expect(edge, `${mesh.name} at ${time}s`).toBeLessThan(-5)
+    }
+  }
+})
+
 test('marchers remain on their routes and ground throughout the sequence', () => {
   const armies = new Armies()
   armies.prepareFilm(UNIT_KEYS)
