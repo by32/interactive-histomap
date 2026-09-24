@@ -1,6 +1,9 @@
 /** written next to the videos by scripts/thermopylae/stitch.mjs; served when the
  * render-film workflow has published a film (see .github/workflows) */
+import { filmFingerprint } from './fingerprint'
+
 interface RenderedFilm {
+  fingerprint?: string
   start: number
   duration: number
   sources: { src: string; type: string }[]
@@ -22,8 +25,11 @@ export function setupRenderedFilm(currentTime: () => number, onOpen: () => void)
   let film: RenderedFilm | null = null
   fetch(`${BASE}film.json`)
     .then((r) => (r.ok ? (r.json() as Promise<RenderedFilm>) : null))
+    // checking it lays out every formation of the film: wait for a quiet moment
+    .then((f) => new Promise<RenderedFilm | null>((resolve) => 'requestIdleCallback' in window ? requestIdleCallback(() => resolve(f)) : setTimeout(() => resolve(f))))
     .then((f) => {
-      if (!f) return
+      // a render of an earlier version of the battle is not offered
+      if (!f || f.fingerprint !== filmFingerprint()) return
       film = f
       video.poster = `${BASE}${f.poster}`
       for (const s of f.sources) {

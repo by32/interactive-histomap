@@ -31,22 +31,30 @@ const WEST = -Math.PI / 2, EAST = Math.PI / 2
 const hidden: Placement = { kind: 'hidden' }
 const post = STAGES[6].units
 const refuge = STAGES[7].units.phocians
-const block = (x: number, heading: number, cols: number, f = .5): Placement => ({ kind: 'block', x, f, heading, cols, spacing: 2.4 })
-const eastbound = (head: number): Placement => ({ kind: 'coastal-column', head, tail: head - 470, abreast: 12, f: .4 })
+const block = (x: number, heading: number, cols: number, f = .5, face?: number): Placement => ({ kind: 'block', x, f, heading, cols, spacing: 2.4, face })
+const eastbound = (head: number, f = .4): Placement => ({ kind: 'coastal-column', head, tail: head - 470, abreast: 12, f })
 const mountain = (t0: number, t1: number): Placement => ({ kind: 'column', t0, t1, abreast: 3 })
 const departed = { ...post, allies: hidden, phocians: refuge }
+// Driven off their post, the Phocians run the last stretch up to their hilltop.
+type Scatter = Extract<Placement, { kind: 'scatter' }>
+const POST = post.phocians as Scatter, REFUGE = refuge as Scatter
+const phocians = (face?: number): Placement => ({ ...REFUGE, x: POST.x + (REFUGE.x - POST.x) * .8, z: POST.z! + (REFUGE.z! - POST.z!) * .8, face })
+const uphill = Math.atan2(REFUGE.x - POST.x, REFUGE.z! - POST.z!)
 
 // Front ranks, not block centres, meet. Persian blocks are much deeper;
-// placing both centres at the contact line would overlap the armies.
-const dayOne = (persianX: number, greekX = -110, heading = WEST) => ({ ...STAGES[3].units, spartans: block(greekX, heading, 8), medes: block(persianX, EAST, 20) })
-const royal = (persianX: number, greekX: number, heading = WEST) => ({ ...STAGES[4].units, spartans: block(greekX, heading, 8), immortals: block(persianX, EAST, 20) })
+// placing both centres at the contact line would overlap the armies. A wave
+// walks up to the Greek line and fights there; it is not drawn falling back.
+const dayOne = (persianX: number) => ({ ...STAGES[3].units, spartans: block(-110, WEST, 8), medes: block(persianX, EAST, 20) })
+// In a feigned retreat the Spartans turn about in their ranks, run, and turn again.
+const royal = (persianX: number, greekX: number, face = WEST) => ({ ...STAGES[4].units, spartans: block(greekX, WEST, 8, .5, face), immortals: block(persianX, EAST, 20) })
 const dayTwo = (persianX: number) => ({ ...STAGES[5].units, thespians: block(-110, WEST, 12), medes: block(persianX, EAST, 20) })
 const advance = (x: number, enemy: number) => ({ ...departed, spartans: block(x, WEST, 8, .40), thespians: block(x + 5, WEST, 12, .69), thebans: block(x + 52, WEST, 8), host: block(enemy, EAST, 42), immortals: mountain(.75,.997) })
 const mound = (x: number, radius: number): Record<string, Placement> => ({
   ...departed,
   spartans: { kind: 'ring', x, z: -125, rMin: 0, rMax: radius * .65, facing: 'out' },
-  thespians: { kind: 'ring', x, z: -125, rMin: radius * .45, rMax: radius, facing: 'out' },
-  thebans: { kind: 'block', x: 465, z: -195, heading: EAST, cols: 8 },
+  thespians: { kind: 'ring', x, z: -125, rMin: radius * .68, rMax: radius, facing: 'out' },
+  // apart from both the defenders and the Immortals' arc: they have surrendered
+  thebans: { kind: 'block', x: 560, z: -190, heading: EAST, cols: 8 },
   host: { kind: 'ring', x: 350, z: -125, rMin: 80, rMax: 250, startAngle: Math.PI * .52, endAngle: Math.PI * 1.48 },
   medes: block(-340, EAST, 30),
   immortals: { kind: 'ring', x: 350, z: -125, rMin: 80, rMax: 190, startAngle: -Math.PI * .48, endAngle: Math.PI * .48 },
@@ -54,29 +62,36 @@ const mound = (x: number, radius: number): Record<string, Placement> => ({
 
 export const UNIT_KEYS: readonly UnitKeyframe[] = [
   { time: 0, units: STAGES[2].units }, { time: 15.999, units: STAGES[2].units },
+  // the Medes walk up to the Greek line and fight there
   { time: 16, units: dayOne(-257) }, { time: 23, units: dayOne(-244) },
-  { time: 26, units: dayOne(-244) }, { time: 31.999, units: dayOne(-256) },
-  { time: 32, units: royal(-244,-110) }, { time: 36, units: royal(-238,-104,EAST) },
-  { time: 40, units: royal(-232,-98,EAST) }, { time: 41, units: royal(-232,-98) },
-  { time: 44, units: royal(-236,-102) }, { time: 47.999, units: royal(-243,-105) },
-  { time: 48, units: dayTwo(-260) }, { time: 53, units: dayTwo(-248) },
-  { time: 55, units: dayTwo(-248) }, { time: 59.999, units: dayTwo(-259) },
+  { time: 31.999, units: dayOne(-244) },
+  // fighting; the Spartans turn about and run; the Immortals follow; the Spartans turn on them
+  { time: 32, units: royal(-244,-110) }, { time: 35, units: royal(-244,-110) },
+  { time: 36, units: royal(-244,-110,EAST) }, { time: 40, units: royal(-237,-100,EAST) },
+  { time: 41, units: royal(-237,-100) }, { time: 47.999, units: royal(-237,-100) },
+  { time: 48, units: dayTwo(-258) }, { time: 54, units: dayTwo(-248) },
+  { time: 59.999, units: dayTwo(-248) },
   { time: 60, units: { ...post, immortals: mountain(.01,.22) } },
   { time: 71.999, units: { ...post, immortals: mountain(.013,.223) } },
   { time: 72, units: { ...post, immortals: mountain(.17,.40) } },
   { time: 83.999, units: { ...post, immortals: mountain(.173,.403) } },
-  { time: 84, units: { ...post, immortals: mountain(.40,.70) } },
-  { time: 95.999, units: { ...post, phocians: refuge, immortals: mountain(.403,.703) } },
+  { time: 84, units: { ...post, phocians: phocians(), immortals: mountain(.40,.70) } },
+  { time: 86, units: { ...post, phocians: phocians(uphill), immortals: mountain(.4005,.7005) } },
+  { time: 95.999, units: { ...post, phocians: { ...REFUGE, face: uphill }, immortals: mountain(.403,.703) } },
   { time: 96, units: { ...post, phocians: refuge, allies: eastbound(1050), immortals: mountain(.55,.83) } },
   { time: 107.999, units: { ...post, phocians: refuge, allies: eastbound(1070), immortals: mountain(.553,.833) } },
   { time: 108, units: { ...post, phocians: refuge, allies: eastbound(2320), immortals: mountain(.71,.99) } },
   { time: 119.999, units: { ...post, phocians: refuge, allies: eastbound(2340), immortals: mountain(.713,.993) } },
-  { time: 120, units: advance(-318,-505) }, { time: 126, units: advance(-327,-514) },
-  { time: 135.999, units: advance(-330,-517) },
-  { time: 136, units: advance(-330,-517) }, { time: 140, units: advance(-330,-517) },
-  { time: 144, units: advance(-333,-524) }, { time: 147.999, units: advance(-330,-522) },
-  { time: 148, units: mound(325,37) }, { time: 163.999, units: mound(350,32) },
+  // both fronts advance into the wider ground and meet
+  { time: 120, units: advance(-318,-520) }, { time: 126, units: advance(-327,-512) },
+  { time: 135.999, units: advance(-327,-512) },
+  // the fight over Leonidas: the Greeks drive the Persian front back a few paces
+  { time: 136, units: advance(-327,-512) }, { time: 140, units: advance(-327,-512) },
+  { time: 147.999, units: advance(-332,-517) },
+  // the survivors close up on the mound
+  { time: 148, units: mound(350,37) }, { time: 163.999, units: mound(350,32) },
   { time: 164, units: mound(350,32) }, { time: 175.999, units: mound(350,32) },
-  { time: 176, units: { ...mound(350,32), phocians: hidden, medes: hidden, host: eastbound(750), immortals: eastbound(1520) } },
-  { time: FILM_DURATION, units: { ...mound(350,32), phocians: hidden, medes: hidden, host: eastbound(774), immortals: eastbound(1544) } },
+  // the army marches on past the mound, by the shore
+  { time: 176, units: { ...mound(350,32), phocians: hidden, medes: hidden, host: eastbound(750,.85), immortals: eastbound(1520) } },
+  { time: FILM_DURATION, units: { ...mound(350,32), phocians: hidden, medes: hidden, host: eastbound(774,.85), immortals: eastbound(1544) } },
 ]

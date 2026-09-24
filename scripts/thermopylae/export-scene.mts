@@ -28,7 +28,7 @@ import {
   type LightPreset,
 } from '../../src/thermopylae/scene.ts'
 import { Armies } from '../../src/thermopylae/units.ts'
-import { terrainFingerprint, stageFingerprint } from '../../src/thermopylae/fingerprint.ts'
+import { terrainFingerprint, stageFingerprint, filmFingerprint } from '../../src/thermopylae/fingerprint.ts'
 import { UNIT_KEYS, LIGHT_KEYS, FILM_CHAPTERS } from '../../src/thermopylae/film.ts'
 import { FilmCamera } from '../../src/thermopylae/film-camera.ts'
 import { BattleEffects } from '../../src/thermopylae/battle.ts'
@@ -309,6 +309,7 @@ scene.film = {
   fps: FPS,
   frames,
   duration: FILM_DURATION,
+  fingerprint: filmFingerprint(),
   chapters: FILM_CHAPTERS.map((c) => ({ id: c.id, time: c.time, frame: Math.round(c.time * FPS), label: c.label, title: c.title })),
 }
 const range = arg('film')

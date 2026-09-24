@@ -15,6 +15,8 @@ export const LIMITS = {
   speed: 5,
   /** m/s: men step back or sidle while fighting, but never walk backwards or sideways faster */
   offFacing: 1,
+  /** m/s²: men set off and pull up like men, no faster than a sprinter's start */
+  accel: 4,
   /** rad/s: a man turns about in a second, not in a frame */
   turn: 4,
   /** m/s: figures keep their places in a formation as it moves */
@@ -32,9 +34,11 @@ export interface AuditRow {
   speed: number
   /** fastest backward or sideways movement relative to the way a figure faces, m/s */
   offFacing: number
+  /** sharpest change of speed, m/s² */
+  accel: number
   /** fastest turn, rad/s */
   turn: number
-  /** fastest movement of a figure relative to its formation, m/s */
+  /** fastest movement of a figure relative to the men around him (within 6 m), m/s */
   shuffle: number
   /** figures whose travel reverses in this chapter */
   reversals: number
@@ -72,17 +76,19 @@ export function auditFilm(fps = 24): Audit {
   const rows = new Map<string, AuditRow>()
   const row = (chapter: number, group: number) => {
     const key = `${chapter}:${group}`
-    if (!rows.has(key)) rows.set(key, { chapter: FILM_CHAPTERS[chapter].id, group: GROUPS[group].id, speed: 0, offFacing: 0, turn: 0, shuffle: 0, reversals: 0, growing: 0, sea: 0, overlaps: 0 })
+    if (!rows.has(key)) rows.set(key, { chapter: FILM_CHAPTERS[chapter].id, group: GROUPS[group].id, speed: 0, offFacing: 0, accel: 0, turn: 0, shuffle: 0, reversals: 0, growing: 0, sea: 0, overlaps: 0 })
     return rows.get(key)!
   }
 
   // frame by frame: speed, facing, turning, growing, the sea, other groups underfoot
   const frames = Math.round(FILM_DURATION * fps)
   let previous: Frame[] | null = null
+  let velocity: Float32Array[] | null = null
   for (let k = 0; k <= frames; k++) {
     const time = k / fps, chapter = chapterAt(time)
     const now = read(time)
     const cut = previous === null || chapterAt((k - 1) / fps) !== chapter
+    const speeds = GROUPS.map((g) => new Float32Array(g.count * 2).fill(NaN))
     const grid = k % Math.round(fps / 2) === 0 ? new Map<number, number[]>() : null
     now.forEach((f, g) => {
       let growing = 0, sea = 0, visible = 0
@@ -103,10 +109,12 @@ export function auditFilm(fps = 24): Audit {
       r.growing = Math.max(r.growing, growing)
       r.sea = Math.max(r.sea, sea)
       if (cut) return
-      const p = previous![g], dt = 1 / fps
+      const p = previous![g], dt = 1 / fps, v = speeds[g], before = velocity?.[g]
       for (let i = 0; i < f.s.length; i++) {
         if (f.s[i] < .99 || p.s[i] < .99) continue
         const vx = (f.x[i] - p.x[i]) / dt, vz = (f.z[i] - p.z[i]) / dt
+        v[i * 2] = vx; v[i * 2 + 1] = vz
+        if (before && !Number.isNaN(before[i * 2])) r.accel = Math.max(r.accel, Math.hypot(vx - before[i * 2], vz - before[i * 2 + 1]) / dt)
         const forward = Math.max(0, vx * f.fx[i] + vz * f.fz[i])
         r.speed = Math.max(r.speed, Math.hypot(vx, vz))
         r.offFacing = Math.max(r.offFacing, Math.hypot(vx - forward * f.fx[i], vz - forward * f.fz[i]))
@@ -135,6 +143,7 @@ export function auditFilm(fps = 24): Audit {
       for (const [g, n] of hits) { const r = row(chapter, g); r.overlaps = Math.max(r.overlaps, n) }
     }
     previous = now
+    velocity = cut ? null : speeds
   }
 
   // key by key: formations hold together, and travel doesn't turn back
@@ -149,12 +158,20 @@ export function auditFilm(fps = 24): Audit {
       const from = a.units[def.id] ?? { kind: 'hidden' }, to = b.units[def.id] ?? { kind: 'hidden' }
       if (from.kind === 'hidden' || to.kind === 'hidden') return
       const s = start[g], e = end[g], n = def.count
-      let mx = 0, mz = 0
-      for (let i = 0; i < n; i++) { mx += e.x[i] - s.x[i]; mz += e.z[i] - s.z[i] }
-      mx /= n; mz /= n
       const r = row(chapter, g)
       if (from.kind === to.kind && (to.kind === 'block' || to.kind === 'ring' || to.kind === 'scatter')) {
-        for (let i = 0; i < n; i++) r.shuffle = Math.max(r.shuffle, Math.hypot(e.x[i] - s.x[i] - mx, e.z[i] - s.z[i] - mz) / span)
+        // each man against the mean of the men within 6 m of him as the move begins
+        const near = new Map<number, number[]>(), cell = (x: number, z: number) => Math.floor(x / 6) * 65536 + Math.floor(z / 6)
+        for (let i = 0; i < n; i++) { const c = cell(s.x[i], s.z[i]); near.set(c, [...(near.get(c) ?? []), i]) }
+        for (let i = 0; i < n; i++) {
+          let mx = 0, mz = 0, m = 0
+          const c = cell(s.x[i], s.z[i])
+          for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) for (const j of near.get(c + dx * 65536 + dz) ?? []) {
+            if (Math.hypot(s.x[j] - s.x[i], s.z[j] - s.z[i]) > 6) continue
+            mx += e.x[j] - s.x[j]; mz += e.z[j] - s.z[j]; m++
+          }
+          r.shuffle = Math.max(r.shuffle, Math.hypot(e.x[i] - s.x[i] - mx / m, e.z[i] - s.z[i] - mz / m) / span)
+        }
       }
       const feint = FEINTS.some((f) => f.chapter === FILM_CHAPTERS[chapter].id && f.group === def.id)
       let reversals = 0
@@ -175,6 +192,7 @@ export function auditFilm(fps = 24): Audit {
     const name = `${r.chapter}: ${r.group}`
     if (r.speed > LIMITS.speed) failures.push(`${name} move at ${r.speed.toFixed(1)} m/s (limit ${LIMITS.speed})`)
     if (r.offFacing > LIMITS.offFacing) failures.push(`${name} move backwards or sideways at ${r.offFacing.toFixed(1)} m/s (limit ${LIMITS.offFacing})`)
+    if (r.accel > LIMITS.accel) failures.push(`${name} change speed at ${r.accel.toFixed(1)} m/s² (limit ${LIMITS.accel})`)
     if (r.turn > LIMITS.turn) failures.push(`${name} turn at ${r.turn.toFixed(1)} rad/s (limit ${LIMITS.turn})`)
     if (r.shuffle > LIMITS.shuffle) failures.push(`${name} shuffle within their formation at ${r.shuffle.toFixed(1)} m/s (limit ${LIMITS.shuffle})`)
     if (r.reversals) failures.push(`${name}: ${r.reversals} figures turn back`)
@@ -186,9 +204,9 @@ export function auditFilm(fps = 24): Audit {
 }
 
 export function formatAudit({ rows }: Audit) {
-  const head = ['chapter', 'group', 'speed', 'off-facing', 'turn', 'shuffle', 'reversals', 'growing', 'sea', 'overlaps']
+  const head = ['chapter', 'group', 'speed', 'off-facing', 'accel', 'turn', 'shuffle', 'reversals', 'growing', 'sea', 'overlaps']
   const flag = (v: number, limit: number) => (v > limit ? '✗ ' : '  ') + v.toFixed(1)
-  const lines = rows.map((r) => [r.chapter, r.group, flag(r.speed, LIMITS.speed), flag(r.offFacing, LIMITS.offFacing), flag(r.turn, LIMITS.turn), flag(r.shuffle, LIMITS.shuffle),
+  const lines = rows.map((r) => [r.chapter, r.group, flag(r.speed, LIMITS.speed), flag(r.offFacing, LIMITS.offFacing), flag(r.accel, LIMITS.accel), flag(r.turn, LIMITS.turn), flag(r.shuffle, LIMITS.shuffle),
     ...[r.reversals, r.growing, r.sea, r.overlaps].map((v) => (v ? '✗ ' : '  ') + v)])
   const widths = head.map((h, c) => Math.max(h.length, ...lines.map((l) => l[c].length)))
   return [head, ...lines].map((l) => l.map((v, c) => v.padEnd(widths[c])).join('  ')).join('\n')
