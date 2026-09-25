@@ -8,7 +8,7 @@ import { heightAt, cliffFoot, shoreline } from '../src/thermopylae/terrain'
 import { BattleEffects, battlePose } from '../src/thermopylae/battle'
 import { STAGES } from '../src/thermopylae/script'
 import { buildSprings, buildTerrain, clonePreset, filmLight, LIGHTS } from '../src/thermopylae/scene'
-import { focusLight } from '../src/thermopylae/atmosphere'
+import { focusLight, flowingWater } from '../src/thermopylae/atmosphere'
 import { STRIDE } from '../src/thermopylae/soldier'
 
 test('camera focal points and sightlines remain above the terrain between shots', () => {
@@ -108,6 +108,18 @@ test('the hot springs lie on the ground: no pool floats over it or cuts through 
     }
     expect((pool.material as THREE.Material).depthWrite).toBe(false)
   }
+})
+
+test('the sea is tiled finely enough that depth never lets it over the land', () => {
+  const sea = flowingWater().mesh
+  const p = sea.geometry.getAttribute('position'), index = sea.geometry.index!
+  const a = new THREE.Vector3(), b = new THREE.Vector3()
+  let longest = 0
+  for (let t = 0; t < index.count; t += 3) for (let k = 0; k < 3; k++) {
+    a.fromBufferAttribute(p, index.getX(t + k)); b.fromBufferAttribute(p, index.getX(t + (k + 1) % 3))
+    longest = Math.max(longest, a.distanceTo(b))
+  }
+  expect(longest).toBeLessThan(500)
 })
 
 test('shadows start at the feet, and every soldier casts one', () => {

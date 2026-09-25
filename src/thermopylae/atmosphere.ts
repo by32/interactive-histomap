@@ -35,6 +35,9 @@ export function limestoneMaterial(vertexColors = true) {
   return material
 }
 
+/** the sea's tiles a side: 300 m each */
+export const SEA_TILES = 200
+
 export function flowingWater() {
   const time = { value: 0 }
   const modern = { value: 0 }
@@ -99,7 +102,10 @@ export function flowingWater() {
     `)
   }
   material.customProgramCacheKey = () => 'water-integrated-coast-v6'
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(60000, 60000).rotateX(-Math.PI / 2), material)
+  // Tiled, not two vast triangles: depth interpolated across a triangle 60 km
+  // wide is too coarse near the camera, and the sea flashed over the beach and
+  // the men standing on it for a frame at a time.
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(60000, 60000, SEA_TILES, SEA_TILES).rotateX(-Math.PI / 2), material)
   mesh.name = 'sea'
   return { mesh, time, modern }
 }
