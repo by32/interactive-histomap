@@ -16,7 +16,7 @@ GRADE = {
     # dawn sits about half a stop under the day, not level with it
     "dawn": dict(sun=3.0, sky=0.3, haze=0.4, air=1.4, dust=2.4, exposure=-0.75),
     "dusk": dict(sun=2.8, sky=0.34, haze=0.38, air=1.4, dust=2.2, exposure=-0.2),
-    "night": dict(sun=0.09, sky=0.0, haze=0.3, air=1.0, dust=1.0, exposure=0.8),
+    "night": dict(sun=0.09, sky=0.0, haze=0.3, air=1.0, dust=1.0, exposure=1.2),
 }
 
 
