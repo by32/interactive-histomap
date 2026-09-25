@@ -220,9 +220,11 @@ export function soldierMaterial(time: { value: number }, stride: { value: number
     shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vMetal;\nvarying vec3 vTint;')
     // dyes and skin vary from man to man; bronze a little less
     shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb *= mix(vec3(1.0), vTint, 1.0 - .7 * vMetal);')
-    shader.fragmentShader = shader.fragmentShader.replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(.89, .38, vMetal);')
+    shader.fragmentShader = shader.fragmentShader.replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(.89, .5, vMetal);')
+    // a glint off a spearhead the size of a pixel must not bloom into a flare
+    shader.fragmentShader = shader.fragmentShader.replace('#include <dithering_fragment>', '#include <dithering_fragment>\ngl_FragColor.rgb = min(gl_FragColor.rgb, vec3(2.0));')
     shader.fragmentShader = shader.fragmentShader.replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = vMetal;')
   }
-  material.customProgramCacheKey = () => 'thermopylae-battle-v5'
+  material.customProgramCacheKey = () => 'thermopylae-battle-v6'
   return material
 }

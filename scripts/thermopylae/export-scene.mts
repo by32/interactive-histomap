@@ -23,7 +23,7 @@ import {
   buildSprings,
   buildModernFeatures,
   LIGHTS,
-  lerpPreset,
+  filmLight,
   clonePreset,
   type LightPreset,
 } from '../../src/thermopylae/scene.ts'
@@ -344,7 +344,7 @@ if (range) {
     arrowCounts[k] = effects.arrows.count
     arrows.set(effects.arrows.instanceMatrix.array.slice(0, effects.arrows.count * 16), k * 180 * 16)
     const light = interval(LIGHT_KEYS, t)
-    lerpPreset(LIGHTS[light.from.light], LIGHTS[light.to.light], smoothstep(light.progress), lightNow)
+    filmLight(t, lightNow)
     const glow = lightNow.fires * (0.94 + 0.06 * Math.sin(t * 11))
     const torches = torchState(armies)
     torchOffsets[k] = torchFrames.length / 3

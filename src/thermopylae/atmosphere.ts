@@ -120,8 +120,10 @@ export function nightSky() {
   return {mesh,material}
 }
 
-export function softenPoints(material: THREE.PointsMaterial) {
-  material.blending=THREE.AdditiveBlending
+/** Round, soft-edged points. Additive for sparse lights (camp fires); a torch
+ * column blends normally, or distant torches stack into a flare. */
+export function softenPoints(material: THREE.PointsMaterial, additive = true) {
+  material.blending=additive ? THREE.AdditiveBlending : THREE.NormalBlending
   material.onBeforeCompile=(shader)=>{
     shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
       float radius=length(gl_PointCoord-.5)*2.0;
@@ -143,8 +145,10 @@ export function focusLight(light: THREE.DirectionalLight, target: THREE.Vector3,
   c.near=10
   c.far=2500+radius*1.5
   c.updateProjectionMatrix()
-  light.shadow.bias=-SHADOW_GAP/(c.far-c.near)
-  light.shadow.normalBias=1.5*(2*radius/light.shadow.mapSize.x)
+  // a texel and a half of slack: enough that nothing shadows itself, never a man's height
+  const texel=2*radius/light.shadow.mapSize.x
+  light.shadow.bias=-Math.max(SHADOW_GAP,1.5*texel)/(c.far-c.near)
+  light.shadow.normalBias=texel
 }
 
 /** metres between a caster and the shadow it may leave out, at most */

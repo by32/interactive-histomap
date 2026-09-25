@@ -7,7 +7,7 @@ import { Armies, pathAt } from '../src/thermopylae/units'
 import { heightAt, cliffFoot, shoreline } from '../src/thermopylae/terrain'
 import { BattleEffects, battlePose } from '../src/thermopylae/battle'
 import { STAGES } from '../src/thermopylae/script'
-import { buildSprings, LIGHTS } from '../src/thermopylae/scene'
+import { buildSprings, buildTerrain, clonePreset, filmLight, LIGHTS } from '../src/thermopylae/scene'
 import { focusLight } from '../src/thermopylae/atmosphere'
 import { STRIDE } from '../src/thermopylae/soldier'
 
@@ -116,13 +116,28 @@ test('shadows start at the feet, and every soldier casts one', () => {
   for (const distance of [40, 90, 400, 2500]) {
     focusLight(sun, new THREE.Vector3(0, 0, 0), new THREE.Vector3(distance, distance, 0), LIGHTS.day)
     const c = sun.shadow.camera
-    // the depth bias, in metres along the light
-    expect(Math.abs(sun.shadow.bias) * (c.far - c.near)).toBeLessThanOrEqual(.1)
-    expect(sun.shadow.normalBias).toBeLessThan(2 * (c.right - c.left) / 2048)
+    // the depth bias, in metres along the light: a texel and a half at most, and
+    // in a close shot (where a man is many texels tall) well under his ankle
+    const texel = (c.right - c.left) / 2048
+    expect(Math.abs(sun.shadow.bias) * (c.far - c.near)).toBeLessThanOrEqual(Math.max(.05, 1.5 * texel) + 1e-6)
+    if (distance <= 90) expect(Math.abs(sun.shadow.bias) * (c.far - c.near)).toBeLessThan(.15)
+    expect(sun.shadow.normalBias).toBeLessThanOrEqual(texel)
   }
   const armies = new Armies()
   for (const mesh of armies.root.children.filter((c) => c instanceof THREE.InstancedMesh) as THREE.InstancedMesh[])
     expect(mesh.castShadow, mesh.name).toBe(true)
+  // the mountain shadowing itself drew a striped, swimming patch that read as water
+  expect(buildTerrain(false).castShadow).toBe(false)
+})
+
+test('the sun holds still within each shot and moves only at the cuts', () => {
+  const light = clonePreset(LIGHTS.day), first = new THREE.Vector3()
+  for (const [c, chapter] of FILM_CHAPTERS.entries()) {
+    const end = FILM_CHAPTERS[c + 1]?.time ?? 192
+    filmLight(chapter.time, light)
+    first.copy(light.sunDir)
+    for (let t = chapter.time; t < end; t += .5) expect(filmLight(t, light).sunDir.angleTo(first), `${chapter.id} at ${t}s`).toBeLessThan(1e-6)
+  }
 })
 
 test('marching legs keep pace with the ground covered, so feet do not skate', () => {

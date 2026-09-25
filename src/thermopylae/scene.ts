@@ -18,6 +18,8 @@ import {
 } from './terrain'
 import { anopaea } from './units'
 import type { Lighting } from './script'
+import { FILM_CHAPTERS, LIGHT_KEYS } from './film'
+import { interval, smoothstep, FILM_DURATION } from './timeline'
 import { limestoneMaterial, softenPoints } from './atmosphere'
 
 const mulberry = (seed: number) => () => {
@@ -151,7 +153,10 @@ export function buildTerrain(modern = false): THREE.Mesh {
   geom.computeVertexNormals()
   const mat = limestoneMaterial()
   const mesh = new THREE.Mesh(geom, mat)
-  mesh.castShadow = mesh.receiveShadow = true
+  // The ground takes the shadows of men, trees and walls but casts none of its
+  // own: a camera-sized shadow map on a mountainside draws a striped, swimming
+  // patch (it read as water), and its relief is already in the shading.
+  mesh.receiveShadow = true
   mesh.name = modern ? 'terrain-today' : 'terrain-480bc'
   return mesh
 }
@@ -550,7 +555,31 @@ export const LIGHTS: Record<Lighting, LightPreset> = {
   dawn: preset([0.9, 0.2, 0.3], 0xffb173, 1.9, 0xb89e8c, 0x3d3830, 0.5, 0x3a5c93, 0xffbd8c, 0xc9a58a, 1500, 9000, 0.35),
   dusk: preset([-0.9, 0.14, 0.28], 0xff8d4d, 1.6, 0xe9a888, 0x36302a, 0.75, 0x2f3a68, 0xff9f6a, 0xd99a7c, 1400, 9000, 0.6),
   // moonlight: some two stops under the day, cool, the pass lit by torches
-  night: preset([-.3,.7,.5], 0x8fa9cf, .5, 0x4a5f7e, 0x151a22, .32, 0x071321, 0x263a50, 0x1d2b39, 180, 6200, 1),
+  night: preset([-.3,.7,.5], 0x8fa9cf, .72, 0x4a5f7e, 0x151a22, .42, 0x071321, 0x263a50, 0x1d2b39, 180, 6200, 1),
+}
+
+const midShot = clonePresetLazy()
+/**
+ * The film's light at time t. Light and colour change as the keys say, but the
+ * sun holds its place within a shot, where it would otherwise swing across the
+ * sky in a few seconds and drag every shadow with it: it takes its direction
+ * from the middle of the chapter, and moves only at the cuts.
+ */
+export function filmLight(t: number, out: LightPreset) {
+  const key = interval(LIGHT_KEYS, t)
+  lerpPreset(LIGHTS[key.from.light], LIGHTS[key.to.light], smoothstep(key.progress), out)
+  const chapter = FILM_CHAPTERS.findLastIndex((c) => t >= c.time)
+  const mid = (FILM_CHAPTERS[chapter].time + (FILM_CHAPTERS[chapter + 1]?.time ?? FILM_DURATION)) / 2
+  const at = interval(LIGHT_KEYS, mid)
+  const m = midShot()
+  lerpPreset(LIGHTS[at.from.light], LIGHTS[at.to.light], smoothstep(at.progress), m)
+  out.sunDir.copy(m.sunDir)
+  return out
+}
+
+function clonePresetLazy() {
+  let p: LightPreset | null = null
+  return () => (p ??= clonePreset(LIGHTS.day))
 }
 
 export function lerpPreset(a: LightPreset, b: LightPreset, t: number, out: LightPreset) {

@@ -17,9 +17,9 @@ import { applyBakedTerrain } from './baked'
 import { Cinematic } from './cinematic'
 import { setupRenderedFilm } from './rendered-film'
 import { Armies } from './units'
-import { FILM_CHAPTERS, LIGHT_KEYS, UNIT_KEYS } from './film'
+import { FILM_CHAPTERS, UNIT_KEYS } from './film'
 import { FilmCamera } from './film-camera'
-import { FilmClock, FILM_DURATION, clampTime, interval, smoothstep } from './timeline'
+import { FilmClock, FILM_DURATION, clampTime } from './timeline'
 import {
   buildTerrain,
   buildModernFeatures,
@@ -32,6 +32,7 @@ import {
   buildSprings,
   LIGHTS,
   lerpPreset,
+  filmLight,
   clonePreset,
   type LightPreset,
 } from './scene'
@@ -141,8 +142,6 @@ loadSoldierModels(`${import.meta.env.BASE_URL}thermopylae/models/soldiers.glb`)
   .finally(() => { armies.root.visible = true })
 const battleEffects = new BattleEffects()
 scene.add(battleEffects.root)
-const torchLights = Array.from({length:3}, () => new THREE.PointLight(0xffa34b,0,38,1.7))
-scene.add(...torchLights)
 const film = new FilmClock()
 let filmActive = false
 let followCamera = true
@@ -511,8 +510,7 @@ function renderFilm(force = false) {
   renderedFilmTime = film.time
   armies.sampleFilm(film.time)
   battleEffects.sample(film.time,true)
-  const light = interval(LIGHT_KEYS, film.time)
-  lerpPreset(LIGHTS[light.from.light], LIGHTS[light.to.light], smoothstep(light.progress), lightNow)
+  filmLight(film.time, lightNow)
   applyLight(lightNow)
   // A tiny deterministic flicker freezes and rewinds along with the torches.
   armies.setTorchGlow(lightNow.fires * (0.94 + 0.06 * Math.sin(film.time * 11)))
@@ -719,21 +717,12 @@ function frame() {
   }
   if (gpu) {
     armies.updateDetail(camera.position)
-    if (lightNow.fires > .05) {
-      const torches = armies.torches.geometry.getAttribute('position')
-      const nearest: {i:number;d:number}[] = []
-      for(let i=0;i<torches.count;i+=3) {
-        const d=(torches.getX(i)-camera.position.x)**2+(torches.getY(i)-camera.position.y)**2+(torches.getZ(i)-camera.position.z)**2
-        if(d<250*250) nearest.push({i,d})
-      }
-      nearest.sort((a,b)=>a.d-b.d)
-      torchLights.forEach((light,j)=>{
-        const pick=nearest[j*3]
-        light.intensity=pick?14*lightNow.fires*(.9+.1*Math.sin(time*9+j)):0
-        if(pick)light.position.fromBufferAttribute(torches,pick.i)
-      })
-    } else torchLights.forEach(light=>{light.intensity=0})
     focusLight(sun, controls.target, camera.position, lightNow)
+    // High above the pass, a near plane of 2 m leaves the depth buffer too coarse
+    // to tell the sea from the beach: the waterline crept up and down the sand.
+    // Little lies closer to the camera than a sixth of its height above the ground.
+    const near = THREE.MathUtils.clamp((camera.position.y - Math.max(0, groundAt(camera.position.x, camera.position.z))) / 6, 2, 30)
+    if (Math.abs(camera.near - near) > .25) { camera.near = near; camera.updateProjectionMatrix() }
     composer!.render()
     qualitySeconds += dt; qualityFrames++
     if (qualityFrames === 180) {

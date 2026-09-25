@@ -305,7 +305,7 @@ export class Armies {
       opacity: 0,
       depthWrite: false,
     })
-    softenPoints(this.torchMat)
+    softenPoints(this.torchMat, false)
     this.torches = new THREE.Points(tg, this.torchMat)
     this.torches.frustumCulled = false
     this.torches.visible = false
