@@ -5,6 +5,7 @@
 // The picture is the canvas alone, without the page's panels. Needs a running preview (`npm run build && npm run preview`) and ffmpeg
 // (on the PATH, or $FFMPEG).
 //   npm run review:clips -- [out dir] [--fps 6] [--width 960] [--height 540] [--chapters medes,dawn]
+//   npm run review:clips -- [out dir] --at 24,66.5,100   (single frames at those film seconds)
 import { chromium } from '@playwright/test'
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -46,6 +47,17 @@ const seek = (t: number) => page.evaluate(async (time) => {
   await new Promise((r) => requestAnimationFrame(r))
   return document.querySelector<HTMLCanvasElement>('#scene')!.toDataURL('image/png').split(',')[1]
 }, t)
+
+const at = flag('at', '').split(',').filter(Boolean).map(Number)
+if (at.length) {
+  for (const t of at) {
+    const file = join(out, `frame-${t.toFixed(1).padStart(5, '0')}.png`)
+    writeFileSync(file, Buffer.from(await seek(t), 'base64'))
+    console.log(`  ${file}`)
+  }
+  await browser.close()
+  process.exit(0)
+}
 
 const index: { id: string; label: string; time: number; clip: string; poster: string }[] = []
 for (let c = 0; c < FILM_CHAPTERS.length; c++) {

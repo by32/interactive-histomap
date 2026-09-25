@@ -73,11 +73,14 @@ export function flowingWater() {
       // a gentle warp keeps the wave trains from ruling straight lines, and far
       // off, where a pixel covers metres of sea, ripples give way to a calm
       // surface instead of drawing regular stripes across it
-      vec2 p = vWater.xz + 9.0 * sin(vWater.zx * vec2(.011, .013) + vec2(1.7, 4.1));
+      vec2 p = vWater.xz + 16.0 * sin(vWater.zx * vec2(.021, .017) + vec2(1.7, 4.1)) + 5.0 * sin(vWater.zx * vec2(.061, .053));
       float t = waterTime;
-      float calm = 1.0 - smoothstep(220.0, 1100.0, distance(cameraPosition, vWater));
-      float waveX = (filteredCos(p.x*.14 + p.y*.07 + t*.7)*.027 + filteredCos(p.x*.63-p.y*.21+t*1.2)*.012) * calm;
-      float waveZ = (filteredCos(p.y*.18-p.x*.04+t*.6)*.024 + filteredCos(p.y*.49+p.x*.29-t*.9)*.010) * calm;
+      float calm = 1.0 - smoothstep(150.0, 600.0, distance(cameraPosition, vWater));
+      // several short wave trains from different quarters: a choppy gulf, never ruled lines of glitter
+      float waveX = (filteredCos(p.x*.14 + p.y*.07 + t*.7)*.012 + filteredCos(p.x*.63-p.y*.21+t*1.2)*.011
+        + filteredCos(p.x*.31+p.y*.37-t*.8)*.009 + filteredCos(-p.x*.43+p.y*.19+t*1.1)*.008) * calm;
+      float waveZ = (filteredCos(p.y*.18-p.x*.04+t*.6)*.011 + filteredCos(p.y*.49+p.x*.29-t*.9)*.010
+        + filteredCos(p.y*.27-p.x*.33+t*.95)*.009 + filteredCos(p.y*.58+p.x*.11-t*1.3)*.007) * calm;
       normal = normalize((viewMatrix * vec4(-waveX, 1.0, -waveZ, 0.0)).xyz);
     `)
     shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
@@ -95,7 +98,7 @@ export function flowingWater() {
       diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.64,.73,.63), foam * inMap);
     `)
   }
-  material.customProgramCacheKey = () => 'water-integrated-coast-v4'
+  material.customProgramCacheKey = () => 'water-integrated-coast-v6'
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(60000, 60000).rotateX(-Math.PI / 2), material)
   mesh.name = 'sea'
   return { mesh, time, modern }
