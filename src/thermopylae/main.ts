@@ -81,10 +81,9 @@ const fill = new THREE.DirectionalLight(0xcfdcec, 0.55)
 fill.position.set(-1500, 3000, -6000)
 const hemi = new THREE.HemisphereLight(0xbcd6ee, 0x6b6046, 0.75)
 const ambient = new THREE.AmbientLight(0xffffff, 0.3)
+const WHITE = new THREE.Color(0xffffff)
 sun.castShadow = true
 sun.shadow.mapSize.set(2048,2048)
-sun.shadow.bias = -.00025
-sun.shadow.normalBias = .35
 sun.shadow.radius = 2
 scene.add(sun, sun.target, fill, hemi, ambient)
 
@@ -164,13 +163,15 @@ const LIGHT_S = 2.4
 function applyLight(p: LightPreset) {
   sun.position.copy(p.sunDir).multiplyScalar(5000)
   stars.material.opacity = p.fires * .8
-  scene.environmentIntensity = .45 - p.fires * .28
+  // the sky's reflected light scales with the sun: a day sky must not light the night
+  scene.environmentIntensity = .45 * Math.min(1, p.sunIntensity / 3.1)
   sun.color.copy(p.sunColor)
   sun.intensity = p.sunIntensity
   fill.intensity = 0.22 * p.sunIntensity
   hemi.color.copy(p.hemiSky)
   hemi.groundColor.copy(p.hemiGround)
   hemi.intensity = p.hemiIntensity
+  ambient.color.copy(p.hemiSky).lerp(WHITE, .5)
   ambient.intensity = 0.12 * p.sunIntensity
   sky.uniforms.top.value.copy(p.skyTop)
   sky.uniforms.bottom.value.copy(p.skyBottom)
@@ -728,7 +729,7 @@ function frame() {
       nearest.sort((a,b)=>a.d-b.d)
       torchLights.forEach((light,j)=>{
         const pick=nearest[j*3]
-        light.intensity=pick?42*lightNow.fires*(.9+.1*Math.sin(time*9+j)):0
+        light.intensity=pick?14*lightNow.fires*(.9+.1*Math.sin(time*9+j)):0
         if(pick)light.position.fromBufferAttribute(torches,pick.i)
       })
     } else torchLights.forEach(light=>{light.intensity=0})

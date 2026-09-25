@@ -51,8 +51,8 @@ const dayTwo = (persianX: number) => ({ ...STAGES[5].units, thespians: block(-11
 const advance = (x: number, enemy: number) => ({ ...departed, spartans: block(x, WEST, 8, .40), thespians: block(x + 5, WEST, 12, .69), thebans: block(x + 52, WEST, 8), host: block(enemy, EAST, 42), immortals: mountain(.75,.997) })
 const mound = (x: number, radius: number): Record<string, Placement> => ({
   ...departed,
-  spartans: { kind: 'ring', x, z: -125, rMin: 0, rMax: radius * .65, facing: 'out' },
-  thespians: { kind: 'ring', x, z: -125, rMin: radius * .68, rMax: radius, facing: 'out' },
+  spartans: { kind: 'ring', x, z: -125, rMin: 0, rMax: radius * .6, facing: 'out' },
+  thespians: { kind: 'ring', x, z: -125, rMin: radius * .7, rMax: radius, facing: 'out' },
   // apart from both the defenders and the Immortals' arc: they have surrendered
   thebans: { kind: 'block', x: 560, z: -190, heading: EAST, cols: 8 },
   host: { kind: 'ring', x: 350, z: -125, rMin: 80, rMax: 250, startAngle: Math.PI * .52, endAngle: Math.PI * 1.48 },
@@ -88,8 +88,8 @@ export const UNIT_KEYS: readonly UnitKeyframe[] = [
   // the fight over Leonidas: the Greeks drive the Persian front back a few paces
   { time: 136, units: advance(-327,-512) }, { time: 140, units: advance(-327,-512) },
   { time: 147.999, units: advance(-332,-517) },
-  // the survivors close up on the mound
-  { time: 148, units: mound(350,37) }, { time: 163.999, units: mound(350,32) },
+  // the survivors hold the mound
+  { time: 148, units: mound(350,32) }, { time: 163.999, units: mound(350,32) },
   { time: 164, units: mound(350,32) }, { time: 175.999, units: mound(350,32) },
   // the army marches on past the mound, by the shore
   { time: 176, units: { ...mound(350,32), phocians: hidden, medes: hidden, host: eastbound(750,.85), immortals: eastbound(1520) } },

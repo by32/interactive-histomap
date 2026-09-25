@@ -70,10 +70,14 @@ export function flowingWater() {
       float filteredCos(float phase) { return cos(phase) * (1.0 - smoothstep(.7, 3.0, fwidth(phase))); }
     `)
     shader.fragmentShader = shader.fragmentShader.replace('#include <normal_fragment_begin>', `#include <normal_fragment_begin>
-      vec2 p = vWater.xz;
+      // a gentle warp keeps the wave trains from ruling straight lines, and far
+      // off, where a pixel covers metres of sea, ripples give way to a calm
+      // surface instead of drawing regular stripes across it
+      vec2 p = vWater.xz + 9.0 * sin(vWater.zx * vec2(.011, .013) + vec2(1.7, 4.1));
       float t = waterTime;
-      float waveX = filteredCos(p.x*.14 + p.y*.07 + t*.7)*.027 + filteredCos(p.x*.63-p.y*.21+t*1.2)*.012;
-      float waveZ = filteredCos(p.y*.18-p.x*.04+t*.6)*.024 + filteredCos(p.y*.49+p.x*.29-t*.9)*.010;
+      float calm = 1.0 - smoothstep(220.0, 1100.0, distance(cameraPosition, vWater));
+      float waveX = (filteredCos(p.x*.14 + p.y*.07 + t*.7)*.027 + filteredCos(p.x*.63-p.y*.21+t*1.2)*.012) * calm;
+      float waveZ = (filteredCos(p.y*.18-p.x*.04+t*.6)*.024 + filteredCos(p.y*.49+p.x*.29-t*.9)*.010) * calm;
       normal = normalize((viewMatrix * vec4(-waveX, 1.0, -waveZ, 0.0)).xyz);
     `)
     shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
@@ -85,13 +89,13 @@ export function flowingWater() {
       float footprint = max(1.0, fwidth(offshore));
       float shoreWidth = 4.5 + footprint;
       float foam = (1.0 - smoothstep(1.5, shoreWidth, abs(offshore - 4.0))) * (4.5 / shoreWidth);
-      foam *= .30 + .06 * filteredCos(vWater.x * .055 + waterTime * .38);
+      foam *= .30 + .04 * filteredCos(vWater.x * .055 + waterTime * .38) + .03 * filteredCos(vWater.x * .0213 - waterTime * .23);
       float inMap = step(-3600.0, vWater.x) * step(vWater.x, 3000.0);
       diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.19,.40,.34), (1.0 - smoothstep(0.0,45.0,offshore)) * .35 * inMap);
       diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.64,.73,.63), foam * inMap);
     `)
   }
-  material.customProgramCacheKey = () => 'water-integrated-coast-v3'
+  material.customProgramCacheKey = () => 'water-integrated-coast-v4'
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(60000, 60000).rotateX(-Math.PI / 2), material)
   mesh.name = 'sea'
   return { mesh, time, modern }
@@ -131,10 +135,17 @@ export function focusLight(light: THREE.DirectionalLight, target: THREE.Vector3,
   const c=light.shadow.camera
   c.left=c.bottom=-radius
   c.right=c.top=radius
+  // depth spans only what can cast onto the view, so the bias is centimetres,
+  // not metres: shadows start at a man's feet
   c.near=10
-  c.far=6000
+  c.far=2500+radius*1.5
   c.updateProjectionMatrix()
+  light.shadow.bias=-SHADOW_GAP/(c.far-c.near)
+  light.shadow.normalBias=1.5*(2*radius/light.shadow.mapSize.x)
 }
+
+/** metres between a caster and the shadow it may leave out, at most */
+export const SHADOW_GAP=.05
 
 /** Natural scatter at the pass adds near-ground scale without changing geography. */
 export function coastalRocks() {

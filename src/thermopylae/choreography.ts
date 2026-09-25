@@ -21,6 +21,8 @@ export const LIMITS = {
   turn: 4,
   /** m/s: figures keep their places in a formation as it moves */
   shuffle: .5,
+  /** m: no two men of one group closer than this, shoulder to shoulder */
+  crowding: .6,
 } as const
 
 /** Groups whose movement historically reverses within a chapter: the Spartans'
@@ -48,6 +50,8 @@ export interface AuditRow {
   sea: number
   /** figures standing inside a figure of another group */
   overlaps: number
+  /** figures pressed closer than LIMITS.crowding to a man of their own group */
+  crowded: number
 }
 
 export interface Audit { rows: AuditRow[]; failures: string[] }
@@ -76,7 +80,7 @@ export function auditFilm(fps = 24): Audit {
   const rows = new Map<string, AuditRow>()
   const row = (chapter: number, group: number) => {
     const key = `${chapter}:${group}`
-    if (!rows.has(key)) rows.set(key, { chapter: FILM_CHAPTERS[chapter].id, group: GROUPS[group].id, speed: 0, offFacing: 0, accel: 0, turn: 0, shuffle: 0, reversals: 0, growing: 0, sea: 0, overlaps: 0 })
+    if (!rows.has(key)) rows.set(key, { chapter: FILM_CHAPTERS[chapter].id, group: GROUPS[group].id, speed: 0, offFacing: 0, accel: 0, turn: 0, shuffle: 0, reversals: 0, growing: 0, sea: 0, overlaps: 0, crowded: 0 })
     return rows.get(key)!
   }
 
@@ -123,24 +127,26 @@ export function auditFilm(fps = 24): Audit {
       }
     })
     if (grid) {
-      const hits = new Map<number, number>()
+      const hits = new Map<number, number>(), crowds = new Map<number, number>()
       for (const [cell, list] of grid) {
         for (let a = 0; a < list.length; a += 2) {
           const g = list[a], f = now[g], i = list[a + 1]
-          let hit = false
-          for (let dx = -1; dx <= 1 && !hit; dx++) for (let dz = -1; dz <= 1 && !hit; dz++) {
+          let hit = false, crowd = false
+          for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
             const other = grid.get(cell + dx * 65536 + dz)
             if (!other) continue
-            for (let b = 0; b < other.length && !hit; b += 2) {
-              if (other[b] === g) continue
-              const o = now[other[b]], j = other[b + 1]
-              hit = Math.hypot(o.x[j] - f.x[i], o.z[j] - f.z[i]) < .7
+            for (let b = 0; b < other.length; b += 2) {
+              const o = now[other[b]], j = other[b + 1], d = Math.hypot(o.x[j] - f.x[i], o.z[j] - f.z[i])
+              if (other[b] !== g) hit ||= d < .7
+              else if (j !== i) crowd ||= d < LIMITS.crowding
             }
           }
           if (hit) hits.set(g, (hits.get(g) ?? 0) + 1)
+          if (crowd) crowds.set(g, (crowds.get(g) ?? 0) + 1)
         }
       }
       for (const [g, n] of hits) { const r = row(chapter, g); r.overlaps = Math.max(r.overlaps, n) }
+      for (const [g, n] of crowds) { const r = row(chapter, g); r.crowded = Math.max(r.crowded, n) }
     }
     previous = now
     velocity = cut ? null : speeds
@@ -199,15 +205,16 @@ export function auditFilm(fps = 24): Audit {
     if (r.growing) failures.push(`${name}: ${r.growing} figures grow out of or sink into the ground`)
     if (r.sea) failures.push(`${name}: ${r.sea} figures stand in the sea`)
     if (r.overlaps) failures.push(`${name}: ${r.overlaps} figures stand inside another group`)
+    if (r.crowded) failures.push(`${name}: ${r.crowded} figures stand closer than ${LIMITS.crowding} m to a comrade`)
   }
   return { rows: ordered, failures }
 }
 
 export function formatAudit({ rows }: Audit) {
-  const head = ['chapter', 'group', 'speed', 'off-facing', 'accel', 'turn', 'shuffle', 'reversals', 'growing', 'sea', 'overlaps']
+  const head = ['chapter', 'group', 'speed', 'off-facing', 'accel', 'turn', 'shuffle', 'reversals', 'growing', 'sea', 'overlaps', 'crowded']
   const flag = (v: number, limit: number) => (v > limit ? '✗ ' : '  ') + v.toFixed(1)
   const lines = rows.map((r) => [r.chapter, r.group, flag(r.speed, LIMITS.speed), flag(r.offFacing, LIMITS.offFacing), flag(r.accel, LIMITS.accel), flag(r.turn, LIMITS.turn), flag(r.shuffle, LIMITS.shuffle),
-    ...[r.reversals, r.growing, r.sea, r.overlaps].map((v) => (v ? '✗ ' : '  ') + v)])
+    ...[r.reversals, r.growing, r.sea, r.overlaps, r.crowded].map((v) => (v ? '✗ ' : '  ') + v)])
   const widths = head.map((h, c) => Math.max(h.length, ...lines.map((l) => l[c].length)))
   return [head, ...lines].map((l) => l.map((v, c) => v.padEnd(widths[c])).join('  ')).join('\n')
 }

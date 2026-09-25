@@ -7,6 +7,9 @@ import { Armies, pathAt } from '../src/thermopylae/units'
 import { heightAt, cliffFoot, shoreline } from '../src/thermopylae/terrain'
 import { BattleEffects, battlePose } from '../src/thermopylae/battle'
 import { STAGES } from '../src/thermopylae/script'
+import { buildSprings, LIGHTS } from '../src/thermopylae/scene'
+import { focusLight } from '../src/thermopylae/atmosphere'
+import { STRIDE } from '../src/thermopylae/soldier'
 
 test('camera focal points and sightlines remain above the terrain between shots', () => {
   const path = new FilmCamera()
@@ -91,6 +94,49 @@ test('each army is culled only when every one of its figures is out of view', ()
       expect(edge, `${mesh.name} at ${time}s`).toBeLessThan(-5)
     }
   }
+})
+
+test('the hot springs lie on the ground: no pool floats over it or cuts through legs', () => {
+  const springs = buildSprings()
+  const v = new THREE.Vector3()
+  springs.updateMatrixWorld(true)
+  for (const pool of springs.children as THREE.Mesh[]) {
+    const p = pool.geometry.getAttribute('position')
+    for (let i = 0; i < p.count; i++) {
+      v.fromBufferAttribute(p, i).applyMatrix4(pool.matrixWorld)
+      expect(Math.abs(v.y - heightAt(v.x, v.z)), `pool vertex ${i}`).toBeLessThan(.05)
+    }
+    expect((pool.material as THREE.Material).depthWrite).toBe(false)
+  }
+})
+
+test('shadows start at the feet, and every soldier casts one', () => {
+  const sun = new THREE.DirectionalLight()
+  sun.shadow.mapSize.set(2048, 2048)
+  for (const distance of [40, 90, 400, 2500]) {
+    focusLight(sun, new THREE.Vector3(0, 0, 0), new THREE.Vector3(distance, distance, 0), LIGHTS.day)
+    const c = sun.shadow.camera
+    // the depth bias, in metres along the light
+    expect(Math.abs(sun.shadow.bias) * (c.far - c.near)).toBeLessThanOrEqual(.1)
+    expect(sun.shadow.normalBias).toBeLessThan(2 * (c.right - c.left) / 2048)
+  }
+  const armies = new Armies()
+  for (const mesh of armies.root.children.filter((c) => c instanceof THREE.InstancedMesh) as THREE.InstancedMesh[])
+    expect(mesh.castShadow, mesh.name).toBe(true)
+})
+
+test('marching legs keep pace with the ground covered, so feet do not skate', () => {
+  const armies = new Armies()
+  armies.prepareFilm(UNIT_KEYS)
+  const allies = armies.root.getObjectByName('allies') as THREE.InstancedMesh
+  const motion = allies.geometry.getAttribute('motion')
+  const m = new THREE.Matrix4(), a = new THREE.Vector3(), b = new THREE.Vector3()
+  armies.sampleFilm(99); allies.getMatrixAt(5, m); a.setFromMatrixPosition(m)
+  const before = motion.getZ(5)
+  armies.sampleFilm(104); allies.getMatrixAt(5, m); b.setFromMatrixPosition(m)
+  const walked = Math.hypot(b.x - a.x, b.z - a.z)
+  expect(walked).toBeGreaterThan(5)
+  expect(Math.abs((motion.getZ(5) - before) * STRIDE / (Math.PI * 2) / walked - 1)).toBeLessThan(.02)
 })
 
 test('marchers remain on their routes and ground throughout the sequence', () => {

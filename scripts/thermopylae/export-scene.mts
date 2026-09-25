@@ -115,8 +115,9 @@ function instances(mesh: THREE.InstancedMesh, name: string) {
 }
 
 /* ---------- armies ---------- */
-/** per figure: x, y, z, heading, scale, battle.xyzw, motion.xy (11 floats), GROUPS order */
-const ARMY_STRIDE = 11
+/** per figure: x, y, z, heading, scale, battle.xyzw, motion.xy and the stride
+ * phase (the page's per-figure phase plus its stride clock; 12 floats), GROUPS order */
+const ARMY_STRIDE = 12
 const TOTAL_FIGURES = GROUPS.reduce((a, g) => a + g.count, 0)
 function armyState(armies: Armies, out: Float32Array, offset = 0) {
   let o = offset
@@ -140,6 +141,7 @@ function armyState(armies: Armies, out: Float32Array, offset = 0) {
         out[o + 8] = battle.getW(i)
         out[o + 9] = motion.getX(i)
         out[o + 10] = motion.getY(i)
+        out[o + 11] = motion.getZ(i) + armies.strideClock.value
       } else out.fill(0, o, o + ARMY_STRIDE)
       o += ARMY_STRIDE
     }
