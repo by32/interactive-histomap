@@ -13,9 +13,10 @@ from mathutils import Vector
 GRADE = {
     #          sun W/m2  sky   haze  air   dust  exposure
     "day": dict(sun=4.0, sky=0.42, haze=0.25, air=1.0, dust=1.2, exposure=-0.55),
-    "dawn": dict(sun=3.0, sky=0.36, haze=0.4, air=1.4, dust=2.4, exposure=-0.2),
+    # dawn sits about half a stop under the day, not level with it
+    "dawn": dict(sun=3.0, sky=0.3, haze=0.4, air=1.4, dust=2.4, exposure=-0.75),
     "dusk": dict(sun=2.8, sky=0.34, haze=0.38, air=1.4, dust=2.2, exposure=-0.2),
-    "night": dict(sun=0.09, sky=0.0, haze=0.3, air=1.0, dust=1.0, exposure=1.1),
+    "night": dict(sun=0.09, sky=0.0, haze=0.3, air=1.0, dust=1.0, exposure=0.8),
 }
 
 

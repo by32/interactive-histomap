@@ -79,9 +79,10 @@ class Scene:
             bpy.data.meshes.remove(me)
             self.torches = None
         if glow > 0.01 and len(torches):
-            self.torches = build.points_as_spheres("torches", torches, 0.35, self.torch_mat, subdiv=1)
+            # a flame, not a lamp: small and dim enough that the glow pass leaves a halo, not a ball
+            self.torches = build.points_as_spheres("torches", torches, 0.2, self.torch_mat, subdiv=1)
         self.fire_mat.node_tree.nodes["Principled BSDF"].inputs["Emission Strength"].default_value = 40.0 * light["fires"]
-        self.torch_mat.node_tree.nodes["Principled BSDF"].inputs["Emission Strength"].default_value = 60.0 * glow
+        self.torch_mat.node_tree.nodes["Principled BSDF"].inputs["Emission Strength"].default_value = 18.0 * glow
         world.setup(self.scene, light, grade)
         place(self.camera, eye, target)
 
