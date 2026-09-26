@@ -2,7 +2,8 @@
 // anything is re-rendered: steps the film's own clock frame by frame in
 // headless Chromium (software WebGL), so clips are smooth however slow the
 // machine, and encodes one MP4 per chapter plus a mid-chapter poster.
-// The picture is the canvas alone, without the page's panels. Needs a running preview (`npm run build && npm run preview`) and ffmpeg
+// Each clip is scanned for frames that flash (the sea jumping over the land, a
+// flare). The picture is the canvas alone, without the page's panels. Needs a running preview (`npm run build && npm run preview`) and ffmpeg
 // (on the PATH, or $FFMPEG).
 //   npm run review:clips -- [out dir] [--fps 6] [--width 960] [--height 540] [--chapters medes,dawn]
 //   npm run review:clips -- [out dir] --at 24,66.5,100   (single frames at those film seconds)
@@ -11,6 +12,7 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { FILM_CHAPTERS } from '../../src/thermopylae/film.ts'
+import { flashes } from './flashes.mts'
 import { FILM_DURATION } from '../../src/thermopylae/timeline.ts'
 
 const argv = process.argv.slice(2)
@@ -59,7 +61,7 @@ if (at.length) {
   process.exit(0)
 }
 
-const index: { id: string; label: string; time: number; clip: string; poster: string }[] = []
+const index: { id: string; label: string; time: number; clip: string; poster: string; flashes: string[] }[] = []
 for (let c = 0; c < FILM_CHAPTERS.length; c++) {
   const chapter = FILM_CHAPTERS[c]
   if (only.length && !only.includes(chapter.id)) continue
@@ -79,8 +81,9 @@ for (let c = 0; c < FILM_CHAPTERS.length; c++) {
   const poster = clip.replace('.mp4', '.jpg')
   execFileSync(ffmpeg, ['-y', '-loglevel', 'error', '-i', join(frames, `${String(Math.floor(count / 2)).padStart(4, '0')}.png`), '-q:v', '4', join(out, poster)])
   rmSync(frames, { recursive: true, force: true })
-  index.push({ id: chapter.id, label: chapter.label, time: chapter.time, clip, poster })
-  console.log(`  ${clip}: ${count} frames in ${((Date.now() - started) / 1000).toFixed(0)} s`)
+  const found = flashes(join(out, clip), ffmpeg)
+  index.push({ id: chapter.id, label: chapter.label, time: chapter.time, clip, poster, flashes: found })
+  console.log(`  ${clip}: ${count} frames in ${((Date.now() - started) / 1000).toFixed(0)} s; ${found.length ? 'FLASHES: ' + found.join(', ') : 'no flashes'}`)
 }
 writeFileSync(join(out, 'clips.json'), JSON.stringify(index, null, 1) + '\n')
 await browser.close()
