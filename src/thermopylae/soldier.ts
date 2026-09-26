@@ -152,17 +152,20 @@ function rigShader(vertex: string) {
       attribute float gait;
       attribute float metal;
       attribute float weight;
-      attribute vec2 motion;
+      // x: the man's own seed; y: how much he walks; z: his stride phase, radians
+      attribute vec3 motion;
       attribute vec4 battle;
       varying float vMetal;
       varying vec3 vTint;
       uniform float marchTime;
+      // added to every man's stride phase: a clock where the phase is not the ground covered
+      uniform float strideClock;
       uniform vec2 rigHip;
       uniform vec2 rigShoulder;
       uniform vec3 rigHand;
       mat2 joint(float a) { return mat2(cos(a), -sin(a), sin(a), cos(a)); }
       float jointAngle() {
-        float stride = sin(marchTime * 6.2 + motion.x);
+        float stride = sin(strideClock + motion.z + motion.x);
         float strike = .5 + .5 * sin(marchTime * 3.8 + motion.x);
         if (gait > 2.5) return -(1.35 + .20 * strike) * battle.x - .50 * battle.w;
         if (gait == 2.0) return -.52 * battle.x - .2 * strike * battle.x + 1.7 * battle.z;
@@ -189,7 +192,8 @@ function rigShader(vertex: string) {
         transformed.yz = joint(jointAngle() * weight) * transformed.yz;
         transformed.yz += pivot;
       }
-      transformed.y += (1.0 - cos(marchTime * 12.4 + motion.x * 2.0)) * .035 * motion.y;
+      // lowest with the legs spread, highest as they pass
+      transformed.y += (1.0 + cos(2.0 * (strideClock + motion.z + motion.x))) * .035 * motion.y;
       transformed.z += sin(marchTime * 1.5 + motion.x) * .009 * smoothstep(.9, 2.4, position.y) * (1.0-battle.y);
       transformed.z += sin(marchTime * 3.8 + motion.x) * .10 * battle.x;
       transformed.yz = joint(battle.y * 1.50) * transformed.yz;
@@ -197,25 +201,30 @@ function rigShader(vertex: string) {
     return vertex
 }
 
-export function soldierDepthMaterial(time: {value:number}) {
+/** A man covers this much ground, metres, in one full cycle of his legs (two steps). */
+export const STRIDE = 2.4
+
+export function soldierDepthMaterial(time: {value:number}, stride: {value:number}) {
   const material=new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking})
-  material.onBeforeCompile=shader=>{Object.assign(shader.uniforms,RIG,{marchTime:time});shader.vertexShader=rigShader(shader.vertexShader)}
-  material.customProgramCacheKey=()=> 'thermopylae-battle-depth-v4'
+  material.onBeforeCompile=shader=>{Object.assign(shader.uniforms,RIG,{marchTime:time,strideClock:stride});shader.vertexShader=rigShader(shader.vertexShader)}
+  material.customProgramCacheKey=()=> 'thermopylae-battle-depth-v5'
   return material
 }
 
 /** Walking, combat poses and the different reflectance of bronze and cloth. */
-export function soldierMaterial(time: { value: number }) {
+export function soldierMaterial(time: { value: number }, stride: { value: number }) {
   const material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.83, metalness: 0.1 })
   material.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, RIG, { marchTime: time })
+    Object.assign(shader.uniforms, RIG, { marchTime: time, strideClock: stride })
     shader.vertexShader = rigShader(shader.vertexShader)
     shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vMetal;\nvarying vec3 vTint;')
     // dyes and skin vary from man to man; bronze a little less
     shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb *= mix(vec3(1.0), vTint, 1.0 - .7 * vMetal);')
-    shader.fragmentShader = shader.fragmentShader.replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(.89, .38, vMetal);')
+    shader.fragmentShader = shader.fragmentShader.replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(.89, .5, vMetal);')
+    // a glint off a spearhead the size of a pixel must not bloom into a flare
+    shader.fragmentShader = shader.fragmentShader.replace('#include <dithering_fragment>', '#include <dithering_fragment>\ngl_FragColor.rgb = min(gl_FragColor.rgb, vec3(2.0));')
     shader.fragmentShader = shader.fragmentShader.replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = vMetal;')
   }
-  material.customProgramCacheKey = () => 'thermopylae-battle-v4'
+  material.customProgramCacheKey = () => 'thermopylae-battle-v6'
   return material
 }

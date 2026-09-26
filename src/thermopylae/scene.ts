@@ -18,6 +18,8 @@ import {
 } from './terrain'
 import { anopaea } from './units'
 import type { Lighting } from './script'
+import { FILM_CHAPTERS, LIGHT_KEYS } from './film'
+import { interval, smoothstep, FILM_DURATION } from './timeline'
 import { limestoneMaterial, softenPoints } from './atmosphere'
 
 const mulberry = (seed: number) => () => {
@@ -151,7 +153,10 @@ export function buildTerrain(modern = false): THREE.Mesh {
   geom.computeVertexNormals()
   const mat = limestoneMaterial()
   const mesh = new THREE.Mesh(geom, mat)
-  mesh.castShadow = mesh.receiveShadow = true
+  // The ground takes the shadows of men, trees and walls but casts none of its
+  // own: a camera-sized shadow map on a mountainside draws a striped, swimming
+  // patch (it read as water), and its relief is already in the shading.
+  mesh.receiveShadow = true
   mesh.name = modern ? 'terrain-today' : 'terrain-480bc'
   return mesh
 }
@@ -465,23 +470,34 @@ export function buildPath(): THREE.Mesh {
 }
 
 /* ---------- the hot springs ---------- */
+/** Shallow mineral pools draped over the hollow by the middle gate: men who
+ * stand in them wade, and a pool never floats over the ground or cuts
+ * through legs. Drawn after the ground, never hiding what stands in it. */
 export function buildSprings(): THREE.Group {
   const g = new THREE.Group()
   const mat = new THREE.MeshStandardMaterial({
-    color: 0x5fb8b0,
-    emissive: 0x2a7a78,
-    emissiveIntensity: 0.6,
-    roughness: 0.2,
+    color: 0x4a8580,
+    roughness: 0.15,
+    metalness: 0.1,
     transparent: true,
-    opacity: 0.9,
+    opacity: 0.82,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
   })
   for (const [x, z, r] of [
     [-215, -215, 9],
     [-195, -205, 6],
     [-232, -222, 5],
   ]) {
-    const m = new THREE.Mesh(new THREE.CircleGeometry(r, 16).rotateX(-Math.PI / 2), mat)
-    m.position.set(x, heightAt(x, z) + 0.15, z)
+    const geom = new THREE.RingGeometry(0, r, 24, 6).rotateX(-Math.PI / 2)
+    const p = geom.getAttribute('position') as THREE.BufferAttribute
+    for (let i = 0; i < p.count; i++) p.setY(i, heightAt(x + p.getX(i), z + p.getZ(i)) + 0.03)
+    geom.computeVertexNormals()
+    const m = new THREE.Mesh(geom, mat)
+    m.position.set(x, 0, z)
+    m.renderOrder = 1
     g.add(m)
   }
   g.name = 'springs'
@@ -535,9 +551,35 @@ const preset = (
 // the sun sits to the south (+z); dawn in the east (+x), dusk in the west (−x)
 export const LIGHTS: Record<Lighting, LightPreset> = {
   day: preset([.55,.62,.3], 0xffe2ba, 3.1, 0x9ab7bb, 0x595941, 1.05, 0x396b7f, 0xd8d9c1, 0xaabbb6, 550, 8200, 0),
-  dawn: preset([0.9, 0.2, 0.3], 0xffb173, 1.9, 0xf3c9a4, 0x3d3830, 0.8, 0x3a5c93, 0xffbd8c, 0xe6b48f, 1500, 9000, 0.35),
+  // a low sun carries the dawn: the sky's fill stays dimmer and greyer than day's
+  dawn: preset([0.9, 0.2, 0.3], 0xffb173, 1.9, 0xb89e8c, 0x3d3830, 0.5, 0x3a5c93, 0xffbd8c, 0xc9a58a, 1500, 9000, 0.35),
   dusk: preset([-0.9, 0.14, 0.28], 0xff8d4d, 1.6, 0xe9a888, 0x36302a, 0.75, 0x2f3a68, 0xff9f6a, 0xd99a7c, 1400, 9000, 0.6),
-  night: preset([-.3,.7,.5], 0x9cb9dc, 1.15, 0x728aab, 0x20252e, .95, 0x071321, 0x263a50, 0x263747, 180, 6200, 1),
+  // moonlight: some two stops under the day, cool, the pass lit by torches
+  night: preset([-.3,.7,.5], 0x8fa9cf, .72, 0x4a5f7e, 0x151a22, .42, 0x071321, 0x263a50, 0x1d2b39, 180, 6200, 1),
+}
+
+const midShot = clonePresetLazy()
+/**
+ * The film's light at time t. Light and colour change as the keys say, but the
+ * sun holds its place within a shot, where it would otherwise swing across the
+ * sky in a few seconds and drag every shadow with it: it takes its direction
+ * from the middle of the chapter, and moves only at the cuts.
+ */
+export function filmLight(t: number, out: LightPreset) {
+  const key = interval(LIGHT_KEYS, t)
+  lerpPreset(LIGHTS[key.from.light], LIGHTS[key.to.light], smoothstep(key.progress), out)
+  const chapter = FILM_CHAPTERS.findLastIndex((c) => t >= c.time)
+  const mid = (FILM_CHAPTERS[chapter].time + (FILM_CHAPTERS[chapter + 1]?.time ?? FILM_DURATION)) / 2
+  const at = interval(LIGHT_KEYS, mid)
+  const m = midShot()
+  lerpPreset(LIGHTS[at.from.light], LIGHTS[at.to.light], smoothstep(at.progress), m)
+  out.sunDir.copy(m.sunDir)
+  return out
+}
+
+function clonePresetLazy() {
+  let p: LightPreset | null = null
+  return () => (p ??= clonePreset(LIGHTS.day))
 }
 
 export function lerpPreset(a: LightPreset, b: LightPreset, t: number, out: LightPreset) {

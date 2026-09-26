@@ -70,8 +70,10 @@ export type Placement =
       heading: number
       cols: number
       spacing?: number
+      /** the way the men face, when they turn about in their places (a feigned retreat) */
+      face?: number
     })
-  | (Spot & { kind: 'scatter'; rx: number; rz: number })
+  | (Spot & { kind: 'scatter'; rx: number; rz: number; /** a common facing; each man's own otherwise */ face?: number })
   | (Spot & { kind: 'ring'; rMin: number; rMax: number; facing?: 'in' | 'out'; startAngle?: number; endAngle?: number })
   | {
       kind: 'column'
@@ -130,11 +132,13 @@ const greeksAtWall: Record<string, Placement> = {
   phocians: PHOCIAN_POST,
 }
 
-const persianCamp: Record<string, Placement> = {
-  host: scatter(-2950, 0.3, 600, 520),
-  medes: scatter(-2450, 0.85, 220, 200),
-  immortals: scatter(-3000, 0.5, 260, 200),
+// three camps side by side on the Spercheios plain, not one inside another
+const CAMP = {
+  host: scatter(-2980, 0.3, 420, 480),
+  medes: scatter(-2350, 0.85, 200, 180),
+  immortals: scatter(-2980, 0.62, 260, 200),
 }
+const persianCamp: Record<string, Placement> = { ...CAMP }
 
 export const STAGES: Stage[] = [
   {
@@ -235,8 +239,8 @@ export const STAGES: Stage[] = [
     path: true,
     units: {
       ...greeksAtWall,
-      host: scatter(-2750, 0.3, 550, 480),
-      medes: scatter(-2450, 0.85, 220, 200),
+      host: CAMP.host,
+      medes: CAMP.medes,
       immortals: { kind: 'column', t0: 0.02, t1: 0.36, abreast: 3, march: 0.004 },
     },
   },
@@ -252,8 +256,8 @@ export const STAGES: Stage[] = [
     units: {
       ...greeksAtWall,
       phocians: PHOCIAN_REFUGE,
-      host: scatter(-2750, 0.3, 550, 480),
-      medes: scatter(-2450, 0.85, 220, 200),
+      host: CAMP.host,
+      medes: CAMP.medes,
       immortals: { kind: 'column', t0: 0.42, t1: 0.72, abreast: 3, march: 0.004 },
     },
   },

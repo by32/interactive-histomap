@@ -23,12 +23,12 @@ import {
   buildSprings,
   buildModernFeatures,
   LIGHTS,
-  lerpPreset,
+  filmLight,
   clonePreset,
   type LightPreset,
 } from '../../src/thermopylae/scene.ts'
 import { Armies } from '../../src/thermopylae/units.ts'
-import { terrainFingerprint, stageFingerprint } from '../../src/thermopylae/fingerprint.ts'
+import { terrainFingerprint, stageFingerprint, filmFingerprint } from '../../src/thermopylae/fingerprint.ts'
 import { UNIT_KEYS, LIGHT_KEYS, FILM_CHAPTERS } from '../../src/thermopylae/film.ts'
 import { FilmCamera } from '../../src/thermopylae/film-camera.ts'
 import { BattleEffects } from '../../src/thermopylae/battle.ts'
@@ -115,8 +115,9 @@ function instances(mesh: THREE.InstancedMesh, name: string) {
 }
 
 /* ---------- armies ---------- */
-/** per figure: x, y, z, heading, scale, battle.xyzw, motion.xy (11 floats), GROUPS order */
-const ARMY_STRIDE = 11
+/** per figure: x, y, z, heading, scale, battle.xyzw, motion.xy and the stride
+ * phase (the page's per-figure phase plus its stride clock; 12 floats), GROUPS order */
+const ARMY_STRIDE = 12
 const TOTAL_FIGURES = GROUPS.reduce((a, g) => a + g.count, 0)
 function armyState(armies: Armies, out: Float32Array, offset = 0) {
   let o = offset
@@ -140,6 +141,7 @@ function armyState(armies: Armies, out: Float32Array, offset = 0) {
         out[o + 8] = battle.getW(i)
         out[o + 9] = motion.getX(i)
         out[o + 10] = motion.getY(i)
+        out[o + 11] = motion.getZ(i) + armies.strideClock.value
       } else out.fill(0, o, o + ARMY_STRIDE)
       o += ARMY_STRIDE
     }
@@ -309,6 +311,7 @@ scene.film = {
   fps: FPS,
   frames,
   duration: FILM_DURATION,
+  fingerprint: filmFingerprint(),
   chapters: FILM_CHAPTERS.map((c) => ({ id: c.id, time: c.time, frame: Math.round(c.time * FPS), label: c.label, title: c.title })),
 }
 const range = arg('film')
@@ -341,7 +344,7 @@ if (range) {
     arrowCounts[k] = effects.arrows.count
     arrows.set(effects.arrows.instanceMatrix.array.slice(0, effects.arrows.count * 16), k * 180 * 16)
     const light = interval(LIGHT_KEYS, t)
-    lerpPreset(LIGHTS[light.from.light], LIGHTS[light.to.light], smoothstep(light.progress), lightNow)
+    filmLight(t, lightNow)
     const glow = lightNow.fires * (0.94 + 0.06 * Math.sin(t * 11))
     const torches = torchState(armies)
     torchOffsets[k] = torchFrames.length / 3

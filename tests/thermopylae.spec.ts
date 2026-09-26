@@ -108,7 +108,8 @@ test('the Blender assets load: soldiers, baked terrain, stills and the rendered 
     return r.ok && (await r.text().then((t) => { try { return Boolean(JSON.parse(t).sources) } catch { return false } }))
   })
   await expect(page.locator('#rendered-film-open')).toBeHidden()
-  if (hasFilm) await expect(page.locator('body')).toHaveAttribute('data-rendered-film', 'available')
+  // ...and only while it shows the battle as it is now
+  if (hasFilm) await expect(page.locator('body')).toHaveAttribute('data-rendered-film', /^(available|stale)$/)
   expect(errors).toEqual([])
 })
 

@@ -17,9 +17,9 @@ import { applyBakedTerrain } from './baked'
 import { Cinematic } from './cinematic'
 import { setupRenderedFilm } from './rendered-film'
 import { Armies } from './units'
-import { FILM_CHAPTERS, LIGHT_KEYS, UNIT_KEYS } from './film'
+import { FILM_CHAPTERS, UNIT_KEYS } from './film'
 import { FilmCamera } from './film-camera'
-import { FilmClock, FILM_DURATION, clampTime, interval, smoothstep } from './timeline'
+import { FilmClock, FILM_DURATION, clampTime } from './timeline'
 import {
   buildTerrain,
   buildModernFeatures,
@@ -32,6 +32,7 @@ import {
   buildSprings,
   LIGHTS,
   lerpPreset,
+  filmLight,
   clonePreset,
   type LightPreset,
 } from './scene'
@@ -81,10 +82,9 @@ const fill = new THREE.DirectionalLight(0xcfdcec, 0.55)
 fill.position.set(-1500, 3000, -6000)
 const hemi = new THREE.HemisphereLight(0xbcd6ee, 0x6b6046, 0.75)
 const ambient = new THREE.AmbientLight(0xffffff, 0.3)
+const WHITE = new THREE.Color(0xffffff)
 sun.castShadow = true
 sun.shadow.mapSize.set(2048,2048)
-sun.shadow.bias = -.00025
-sun.shadow.normalBias = .35
 sun.shadow.radius = 2
 scene.add(sun, sun.target, fill, hemi, ambient)
 
@@ -126,7 +126,9 @@ scene.add(armies.root)
 // Cycles stills of each step, crossfaded in once the live view settles on them
 const cinematic = new Cinematic($<HTMLPictureElement>('#still'))
 cinematic.enabled = new URLSearchParams(location.hash.slice(1)).get('c') !== '0'
-document.body.dataset.soldiers = 'primitive'
+// No one sees the primitive figures unless the models fail to load
+document.body.dataset.soldiers = 'loading'
+armies.root.visible = false
 loadSoldierModels(`${import.meta.env.BASE_URL}thermopylae/models/soldiers.glb`)
   .then(({ models, rig }) => {
     useRig(rig)
@@ -134,13 +136,12 @@ loadSoldierModels(`${import.meta.env.BASE_URL}thermopylae/models/soldiers.glb`)
     document.body.dataset.soldiers = 'blender'
   })
   .catch((err) => {
-    console.warn('soldier models unavailable, keeping primitive figures', err)
+    console.warn('soldier models unavailable, showing primitive figures', err)
     document.body.dataset.soldiers = 'failed'
   })
+  .finally(() => { armies.root.visible = true })
 const battleEffects = new BattleEffects()
 scene.add(battleEffects.root)
-const torchLights = Array.from({length:3}, () => new THREE.PointLight(0xffa34b,0,38,1.7))
-scene.add(...torchLights)
 const film = new FilmClock()
 let filmActive = false
 let followCamera = true
@@ -161,13 +162,15 @@ const LIGHT_S = 2.4
 function applyLight(p: LightPreset) {
   sun.position.copy(p.sunDir).multiplyScalar(5000)
   stars.material.opacity = p.fires * .8
-  scene.environmentIntensity = .45 - p.fires * .28
+  // the sky's reflected light scales with the sun: a day sky must not light the night
+  scene.environmentIntensity = .45 * Math.min(1, p.sunIntensity / 3.1)
   sun.color.copy(p.sunColor)
   sun.intensity = p.sunIntensity
   fill.intensity = 0.22 * p.sunIntensity
   hemi.color.copy(p.hemiSky)
   hemi.groundColor.copy(p.hemiGround)
   hemi.intensity = p.hemiIntensity
+  ambient.color.copy(p.hemiSky).lerp(WHITE, .5)
   ambient.intensity = 0.12 * p.sunIntensity
   sky.uniforms.top.value.copy(p.skyTop)
   sky.uniforms.bottom.value.copy(p.skyBottom)
@@ -507,8 +510,7 @@ function renderFilm(force = false) {
   renderedFilmTime = film.time
   armies.sampleFilm(film.time)
   battleEffects.sample(film.time,true)
-  const light = interval(LIGHT_KEYS, film.time)
-  lerpPreset(LIGHTS[light.from.light], LIGHTS[light.to.light], smoothstep(light.progress), lightNow)
+  filmLight(film.time, lightNow)
   applyLight(lightNow)
   // A tiny deterministic flicker freezes and rewinds along with the torches.
   armies.setTorchGlow(lightNow.fires * (0.94 + 0.06 * Math.sin(film.time * 11)))
@@ -715,21 +717,12 @@ function frame() {
   }
   if (gpu) {
     armies.updateDetail(camera.position)
-    if (lightNow.fires > .05) {
-      const torches = armies.torches.geometry.getAttribute('position')
-      const nearest: {i:number;d:number}[] = []
-      for(let i=0;i<torches.count;i+=3) {
-        const d=(torches.getX(i)-camera.position.x)**2+(torches.getY(i)-camera.position.y)**2+(torches.getZ(i)-camera.position.z)**2
-        if(d<250*250) nearest.push({i,d})
-      }
-      nearest.sort((a,b)=>a.d-b.d)
-      torchLights.forEach((light,j)=>{
-        const pick=nearest[j*3]
-        light.intensity=pick?42*lightNow.fires*(.9+.1*Math.sin(time*9+j)):0
-        if(pick)light.position.fromBufferAttribute(torches,pick.i)
-      })
-    } else torchLights.forEach(light=>{light.intensity=0})
     focusLight(sun, controls.target, camera.position, lightNow)
+    // High above the pass, a near plane of 2 m leaves the depth buffer too coarse
+    // to tell the sea from the beach: the waterline crept up and down the sand.
+    // Little lies closer to the camera than a sixth of its height above the ground.
+    const near = THREE.MathUtils.clamp((camera.position.y - Math.max(0, groundAt(camera.position.x, camera.position.z))) / 6, 2, 30)
+    if (Math.abs(camera.near - near) > .25) { camera.near = near; camera.updateProjectionMatrix() }
     composer!.render()
     qualitySeconds += dt; qualityFrames++
     if (qualityFrames === 180) {
