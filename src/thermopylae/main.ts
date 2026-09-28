@@ -313,8 +313,9 @@ function go(i: number, fly = true) {
   lightTo = LIGHTS[stage.light]
   lightK = 0
   const pm = path.material as THREE.MeshStandardMaterial
-  pm.emissiveIntensity = stage.path ? 1.1 : 0.25
-  pm.opacity = stage.path ? 1 : 0.8
+  // the step about the path shows it plainly; elsewhere it is a faint worn track
+  pm.emissiveIntensity = stage.path ? 0.6 : 0
+  pm.opacity = stage.path ? 0.9 : 0.45
   if (fly) flyTo(stage)
   autoTimer = 0
   document.body.dataset.stage = stage.id
@@ -574,8 +575,8 @@ function enterFilm(time = 0, play = true) {
   $('#panel').hidden = true
   filmPanel.hidden = false
   const material = path.material as THREE.MeshStandardMaterial
-  material.emissiveIntensity = .12
-  material.opacity = .55
+  material.emissiveIntensity = 0
+  material.opacity = .45
   // Reduced-motion mode uses the existing overview while the viewer controls the camera.
   if (!followCamera) {
     resolve(STAGES[0].camera.pos, camera.position)

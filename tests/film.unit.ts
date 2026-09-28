@@ -7,7 +7,7 @@ import { Armies, pathAt } from '../src/thermopylae/units'
 import { heightAt, cliffFoot, shoreline } from '../src/thermopylae/terrain'
 import { BattleEffects, battlePose } from '../src/thermopylae/battle'
 import { STAGES } from '../src/thermopylae/script'
-import { buildSprings, buildTerrain, clonePreset, filmLight, LIGHTS } from '../src/thermopylae/scene'
+import { buildPath, buildSprings, buildTerrain, clonePreset, filmLight, LIGHTS } from '../src/thermopylae/scene'
 import { focusLight, flowingWater } from '../src/thermopylae/atmosphere'
 import { STRIDE } from '../src/thermopylae/soldier'
 
@@ -120,6 +120,15 @@ test('the sea is tiled finely enough that depth never lets it over the land', ()
     longest = Math.max(longest, a.distanceTo(b))
   }
   expect(longest).toBeLessThan(500)
+})
+
+test('the Anopaea track lies on the ground the column walks, never across the hollows', () => {
+  const path = buildPath()
+  const p = path.geometry.getAttribute('position')
+  let worst = 0
+  for (let i = 0; i < p.count; i++) worst = Math.max(worst, Math.abs(p.getY(i) - heightAt(p.getX(i), p.getZ(i))))
+  expect(worst).toBeLessThan(.3)
+  expect((path.material as THREE.Material).depthWrite).toBe(false)
 })
 
 test('shadows start at the feet, and every soldier casts one', () => {

@@ -446,28 +446,50 @@ export function buildWall(): THREE.Mesh {
 }
 
 /* ---------- the Anopaea path ---------- */
+/** The Anopaea as a worn track draped on the ground, along the very points the
+ * column walks: never a tube cutting across the hollows between its control
+ * points. Drawn after the ground and never hiding what stands on it. */
 export function buildPath(): THREE.Mesh {
-  const geom = new THREE.TubeGeometry(anopaea.curve, 650, 1.8, 5, false)
-  // sit the tube on the ground
-  const pos = geom.attributes.position as THREE.BufferAttribute
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i)
-    const z = pos.getZ(i)
-    pos.setY(i, Math.max(pos.getY(i), heightAt(x, z) + 0.6))
+  const { points, tangents } = anopaea
+  const across = [-1.5, -0.5, 0.5, 1.5] // metres from the centre line
+  const pos: number[] = []
+  const index: number[] = []
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i], t = tangents[i]
+    for (const d of across) {
+      const x = p.x - t.z * d, z = p.z + t.x * d
+      pos.push(x, heightAt(x, z) + PATH_LIFT, z)
+    }
+    if (i) {
+      const a = (i - 1) * across.length, b = i * across.length
+      for (let k = 0; k + 1 < across.length; k++) index.push(a + k, b + k, a + k + 1, a + k + 1, b + k, b + k + 1)
+    }
   }
-  pos.needsUpdate = true
+  const geom = new THREE.BufferGeometry()
+  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+  geom.setIndex(index)
+  geom.computeVertexNormals()
   const mat = new THREE.MeshStandardMaterial({
-    color: 0xd8b070,
+    color: 0xb59a70,
     emissive: 0x5b462b,
-    emissiveIntensity: 0.25,
-    roughness: 0.9,
+    emissiveIntensity: 0,
+    roughness: 0.95,
     transparent: true,
-    opacity: 0.85,
+    opacity: 0.45,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
+    side: THREE.DoubleSide,
   })
   const mesh = new THREE.Mesh(geom, mat)
+  mesh.renderOrder = 1
   mesh.name = 'anopaea'
   return mesh
 }
+
+/** how far the track sits above the analytic ground, clear of the coarser terrain mesh */
+export const PATH_LIFT = 0.15
 
 /* ---------- the hot springs ---------- */
 /** Shallow mineral pools draped over the hollow by the middle gate: men who
