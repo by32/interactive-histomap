@@ -3,7 +3,7 @@
  "height": 810,
  "stages": {
   "overview": {
-   "fingerprint": "96534201",
+   "fingerprint": "5e2e347e",
    "avif": {
     "960": "01-overview-960.avif",
     "1920": "01-overview-1920.avif"
@@ -13,7 +13,7 @@
    }
   },
   "trachis": {
-   "fingerprint": "cf690526",
+   "fingerprint": "6f9ee6ef",
    "avif": {
     "960": "02-trachis-960.avif",
     "1920": "02-trachis-1920.avif"
@@ -23,7 +23,7 @@
    }
   },
   "wall": {
-   "fingerprint": "f675d503",
+   "fingerprint": "00daea34",
    "avif": {
     "960": "03-wall-960.avif",
     "1920": "03-wall-1920.avif"
@@ -33,7 +33,7 @@
    }
   },
   "day1-medes": {
-   "fingerprint": "f956ee55",
+   "fingerprint": "0156029f",
    "avif": {
     "960": "04-day1-medes-960.avif",
     "1920": "04-day1-medes-1920.avif"
@@ -43,7 +43,7 @@
    }
   },
   "day1-immortals": {
-   "fingerprint": "d5ceb36d",
+   "fingerprint": "73933d02",
    "avif": {
     "960": "05-day1-immortals-960.avif",
     "1920": "05-day1-immortals-1920.avif"
@@ -53,7 +53,7 @@
    }
   },
   "day2": {
-   "fingerprint": "54c2123d",
+   "fingerprint": "6330b90a",
    "avif": {
     "960": "06-day2-960.avif",
     "1920": "06-day2-1920.avif"
@@ -63,7 +63,7 @@
    }
   },
   "anopaea": {
-   "fingerprint": "cbb98670",
+   "fingerprint": "06cda49f",
    "avif": {
     "960": "07-anopaea-960.avif",
     "1920": "07-anopaea-1920.avif"
@@ -73,7 +73,7 @@
    }
   },
   "dawn": {
-   "fingerprint": "418107fb",
+   "fingerprint": "52f74c0f",
    "avif": {
     "960": "08-dawn-960.avif",
     "1920": "08-dawn-1920.avif"
@@ -83,7 +83,7 @@
    }
   },
   "dismissal": {
-   "fingerprint": "a32dc1d3",
+   "fingerprint": "b10288bf",
    "avif": {
     "960": "09-dismissal-960.avif",
     "1920": "09-dismissal-1920.avif"
@@ -93,7 +93,7 @@
    }
   },
   "last-stand": {
-   "fingerprint": "9e20c72a",
+   "fingerprint": "9ec8dd77",
    "avif": {
     "960": "10-last-stand-960.avif",
     "1920": "10-last-stand-1920.avif"
@@ -103,7 +103,7 @@
    }
   },
   "aftermath": {
-   "fingerprint": "c7cd6c0f",
+   "fingerprint": "a0d8bbc8",
    "avif": {
     "960": "11-aftermath-960.avif",
     "1920": "11-aftermath-1920.avif"
