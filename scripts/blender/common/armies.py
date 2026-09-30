@@ -34,16 +34,18 @@ def _smoothstep(e0, e1, x):
 
 def pose(pos, gait, battle, motion, t, rig=None, weight=None):
     """pos: (V,3) model vertices, already scaled by FIGURE_SIZE, three.js-local.
-    gait: (V,). battle: (N,4), motion: (N,2) per figure. t: the rig's marchTime.
+    gait: (V,). battle: (N,4), motion: (N,3) per figure: seed, walking weight and
+    stride phase (radians, the ground covered). t: the rig's marchTime.
     rig: the model's joints (hip, shoulder (y, z); hand (x, y, z), metres
     before FIGURE_SIZE), the primitive figures' by default. weight: (V,), how
     far each vertex follows its limb. Returns (N,V,3) posed vertices, three.js-local."""
     n = len(battle)
     mx = motion[:, 0:1]
     my = motion[:, 1:2]
+    phase = motion[:, 2:3] + mx
     bx, by, bz, bw = (battle[:, k : k + 1] for k in range(4))
     g = gait[None, :]
-    stride = np.sin(t * 6.2 + mx)
+    stride = np.sin(phase)
     strike = 0.5 + 0.5 * np.sin(t * 3.8 + mx)
     angle = np.where(
         g > 2.5,
@@ -84,7 +86,7 @@ def pose(pos, gait, battle, motion, t, rig=None, weight=None):
     y = np.where(jointed, c * yy + s * zz + py, y)
     z = np.where(jointed, -s * yy + c * zz + pz, z)
     # step bob, a little sway of the upper body, lunging when engaged
-    y = y + (1 - np.cos(t * 12.4 + mx * 2.0)) * 0.035 * my
+    y = y + (1 + np.cos(2.0 * phase)) * 0.035 * my  # lowest with the legs spread
     z = z + np.sin(t * 1.5 + mx) * 0.009 * _smoothstep(0.9, 2.4, pos[None, :, 1]) * (1 - by)
     z = z + np.sin(t * 3.8 + mx) * 0.10 * bx
     # falling: the whole figure tips forward about its feet
@@ -129,10 +131,10 @@ class Model:
 
 
 def figures_mesh(name, model, figs, t):
-    """figs: (N, 11) exported figure rows for the figures using this model."""
+    """figs: (N, 12) exported figure rows for the figures using this model."""
     heading = figs[:, 3]
     scale = figs[:, 4]
-    posed = pose(model.pos, model.gait, figs[:, 5:9], figs[:, 9:11], t, model.rig, model.weight)  # (N,V,3)
+    posed = pose(model.pos, model.gait, figs[:, 5:9], figs[:, 9:12], t, model.rig, model.weight)  # (N,V,3)
     c, s = np.cos(heading)[:, None], np.sin(heading)[:, None]
     x = c * posed[:, :, 0] + s * posed[:, :, 2]  # rotation about +y by heading
     z = -s * posed[:, :, 0] + c * posed[:, :, 2]
@@ -178,7 +180,7 @@ class ArmyBuilder:
         self.objects = []
 
     def build(self, rows, t, camera_three):
-        """rows: (figures, 11) for all groups in GROUPS order; camera in three.js space."""
+        """rows: (figures, 12) for all groups in GROUPS order; camera in three.js space."""
         self.clear()
         start = 0
         cam = np.asarray(camera_three, dtype=np.float32)

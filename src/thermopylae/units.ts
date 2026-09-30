@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { soldierGeometry, soldierMaterial, soldierDepthMaterial, FIGURE_SIZE } from './soldier'
+import { soldierGeometry, soldierMaterial, soldierDepthMaterial, FIGURE_SIZE, STRIDE } from './soldier'
 import { battlePose } from './battle'
 import { softenPoints } from './atmosphere'
 import { heightAt, stripZ, clampToStrip, shoreline, ANOPAEA_XZ } from './terrain'
@@ -22,17 +22,24 @@ export const anopaea = (() => {
   const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal', 0.5)
   const spaced = curve.getSpacedPoints(PATH_SAMPLES)
   for (const p of spaced) p.y = heightAt(p.x, p.z) + 1.2
-  return { curve, points: spaced }
+  // the direction of travel at each point, so it turns smoothly between them
+  const tangents = spaced.map((_, i) => new THREE.Vector3().subVectors(spaced[Math.min(i + 1, PATH_SAMPLES)], spaced[Math.max(i - 1, 0)]).setY(0).normalize())
+  const walked = [0]
+  for (let i = 1; i <= PATH_SAMPLES; i++) walked.push(walked[i - 1] + Math.hypot(spaced[i].x - spaced[i - 1].x, spaced[i].z - spaced[i - 1].z))
+  return { curve, points: spaced, tangents, walked }
 })()
 
 /** point and forward direction at fraction t of the path */
 export function pathAt(t: number, out: THREE.Vector3, dir?: THREE.Vector3) {
-  const f = Math.min(Math.max(t, 0), 1) * PATH_SAMPLES
-  const i = Math.min(PATH_SAMPLES - 1, Math.floor(f))
-  const a = anopaea.points[i]
-  const b = anopaea.points[i + 1]
-  out.lerpVectors(a, b, f - i)
-  if (dir) dir.subVectors(b, a).setY(0).normalize()
+  // fractions of the distance walked on the ground, measured over the ground as seen from above, so the march keeps a steady pace over rough ground
+  const { points, walked } = anopaea
+  const d = Math.min(Math.max(t, 0), 1) * walked[PATH_SAMPLES]
+  let lo = 0, hi = PATH_SAMPLES - 1
+  while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (walked[mid] <= d) lo = mid; else hi = mid - 1 }
+  const i = lo, a = points[i], b = points[i + 1]
+  const u = Math.min(1, (d - walked[i]) / Math.max(1e-6, walked[i + 1] - walked[i]))
+  out.lerpVectors(a, b, u)
+  if (dir) dir.lerpVectors(anopaea.tangents[i], anopaea.tangents[i + 1], u).normalize()
 }
 
 /* ---------- per-figure target layouts ---------- */
@@ -76,42 +83,63 @@ function layoutFor(group: GroupDef, p: Placement, seed: number): Layout {
       const rows = Math.ceil(n / p.cols)
       const sinH = Math.sin(p.heading)
       const cosH = Math.cos(p.heading)
+      // a block facing along the pass follows its bends, as a column follows a road
+      const along = onStrip && Math.abs(cosH) < 1e-6
       for (let i = 0; i < n; i++) {
         const row = Math.floor(i / p.cols)
         const col = i % p.cols
         // local: lateral (x) across the front, depth (z) behind the front rank
         const lx = (col - (p.cols - 1) / 2) * s + jitter()
         const lz = -(row - (rows - 1) / 2) * s + jitter()
-        const x = p.x + lx * cosH + lz * sinH
-        const z = cz - lx * sinH + lz * cosH
-        set(i, x, z, p.heading + (rnd() - 0.5) * 0.15)
+        let x = p.x + lx * cosH + lz * sinH
+        let z = cz - lx * sinH + lz * cosH
+        let turn = 0
+        if (along) {
+          x = p.x + lz * sinH
+          const f = spot!.f!
+          const dz = (stripZ(x + 1, f) - stripZ(x - 1, f)) / 2
+          turn = -Math.atan(dz)  // the whole block turns with the pass, whichever way the men face
+          z = stripZ(x, f) - lx * sinH / Math.cos(turn)
+        }
+        set(i, x, z, (p.face ?? p.heading) + turn + (rnd() - 0.5) * 0.15)
       }
       return { data, visible: true, onStrip }
     }
-    case 'scatter':
+    case 'scatter': {
+      const room = spacing()
       for (let i = 0; i < n; i++) {
         let x = p.x
         let z = cz
-        // rejection-sample into the ellipse and keep out of the sea
-        for (let k = 0; k < 12; k++) {
+        // rejection-sample into the ellipse, out of the sea and clear of the others
+        for (let k = 0; k < 40; k++) {
           const a = rnd() * Math.PI * 2
           const r = Math.sqrt(rnd())
           x = p.x + Math.cos(a) * r * p.rx
           z = cz + Math.sin(a) * r * p.rz
-          if (heightAt(x, z) > 0.4) break
+          if (heightAt(x, z) > 0.4 && room.free(x, z)) break
         }
-        set(i, x, z, rnd() * Math.PI * 2)
+        room.add(x, z)
+        const own = rnd()
+        set(i, x, z, p.face === undefined ? own * Math.PI * 2 : p.face + (own - 0.5) * 0.3)
       }
       return { data, visible: true, onStrip }
-    case 'ring':
+    }
+    case 'ring': {
+      const room = spacing()
       for (let i = 0; i < n; i++) {
-        const a = (p.startAngle ?? 0) + rnd() * ((p.endAngle ?? Math.PI * 2) - (p.startAngle ?? 0))
-        const r = p.rMin + Math.sqrt(rnd()) * (p.rMax - p.rMin)
-        const x = p.x + Math.cos(a) * r
-        const z = Math.max(shoreline(x) + 4, cz + Math.sin(a) * r)
+        let x = p.x, z = cz
+        for (let k = 0; k < 40; k++) {
+          const a = (p.startAngle ?? 0) + rnd() * ((p.endAngle ?? Math.PI * 2) - (p.startAngle ?? 0))
+          const r = p.rMin + Math.sqrt(rnd()) * (p.rMax - p.rMin)
+          x = p.x + Math.cos(a) * r
+          z = Math.max(shoreline(x) + 4, cz + Math.sin(a) * r)
+          if (room.free(x, z)) break
+        }
+        room.add(x, z)
         set(i, x, z, Math.atan2(p.x - x, cz - z) + (p.facing === 'out' ? Math.PI : 0))
       }
       return { data, visible: true, onStrip }
+    }
     case 'coastal-column': {
       for (let i = 0; i < n; i++) {
         coastalAt(p, i, n, tmpV, tmpD)
@@ -125,12 +153,36 @@ function layoutFor(group: GroupDef, p: Placement, seed: number): Layout {
       for (let i = 0; i < n; i++) {
         const row = Math.floor(i / p.abreast)
         // head of the column (row 0) is at t1, the tail at t0
-        t[i] = p.t1 - (row / Math.max(1, rows - 1)) * (p.t1 - p.t0) + (rnd() - 0.5) * 0.0015
+        // each man a little out of step, never out of his rank: at most 15% of the gap between ranks
+        const gap = (p.t1 - p.t0) / Math.max(1, rows - 1)
+        t[i] = p.t1 - row * gap + (rnd() - 0.5) * 0.3 * gap
       }
       const layout: Layout = { data, visible: true, t, march: p.march ?? 0, abreast: p.abreast }
       placeColumn(layout, 0, rnd)
       return layout
     }
+  }
+}
+
+/** Where men already stand, so a crowd scattered at random still leaves each his room. */
+function spacing(min = 0.9) {
+  const cells = new Map<number, number[]>()
+  const key = (x: number, z: number) => Math.floor(x / min) * 131072 + Math.floor(z / min)
+  return {
+    free(x: number, z: number) {
+      const cx = Math.floor(x / min), cz = Math.floor(z / min)
+      for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+        const list = cells.get((cx + dx) * 131072 + cz + dz)
+        if (list) for (let j = 0; j < list.length; j += 2) if (Math.hypot(list[j] - x, list[j + 1] - z) < min) return false
+      }
+      return true
+    },
+    add(x: number, z: number) {
+      const k = key(x, z)
+      const list = cells.get(k) ?? []
+      list.push(x, z)
+      cells.set(k, list)
+    },
   }
 }
 
@@ -165,9 +217,43 @@ function placeColumn(layout: Layout, offset: number, rnd?: () => number) {
   }
 }
 
+/** each group's own random layout seed */
+const seedOf = (group: number) => 1000 + group * 7919
+
+/**
+ * Folds where each figure of a group stands (to the metre) and faces (to a
+ * tenth of a radian) into an FNV-1a hash, so a rendered picture of the
+ * formations goes stale when the layout code, not only its settings, changes.
+ */
+export function layoutHash(group: number, placement: Placement, h = 0x811c9dc5): number {
+  const def = GROUPS[group]
+  const layout = layoutFor(def, placement, seedOf(group))
+  const mix = (v: number) => { h = Math.imul(h ^ (v & 0xffff), 0x01000193) }
+  mix(layout.visible ? 1 : 0)
+  if (layout.visible) for (let i = 0; i < def.count; i++) {
+    mix(Math.round(layout.data[i * 4])); mix(Math.round(layout.data[i * 4 + 2])); mix(Math.round(layout.data[i * 4 + 3] * 10))
+  }
+  return h >>> 0
+}
+
+/** layoutHash over every group of a step or film key */
+export const formationHash = (units: Record<string, Placement>) =>
+  GROUPS.reduce((h, def, g) => layoutHash(g, units[def.id] ?? { kind: 'hidden' }, h), 0x811c9dc5)
+
 /* ---------- the armies ---------- */
 const TRANSITION_S = 3.0
+/** radians of stride a second in the walkthrough, where men march on the spot's clock */
+const WALK_CADENCE = 6.2
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
+/** Film moves start from rest and come to rest, unless they run on into the next
+ * move or a cut: speeding up from standing (starting speed 0, arriving at the
+ * move's average speed), slowing to a stop, or both. */
+const easeIn = (t: number) => t * t * (2 - t)
+const easeOut = (t: number) => 1 - easeIn(1 - t)
+const easeBoth = (t: number) => t * t * (3 - 2 * t)
+const linear = (t: number) => t
+/** where a placement stands, whichever way its men face */
+const ground = (p: Placement | undefined) => JSON.stringify(p ? { ...p, face: undefined } : { kind: 'hidden' })
 
 interface Army {
   def: GroupDef
@@ -175,6 +261,8 @@ interface Army {
   from: Layout
   to: Layout
   seed: number
+  /** progress of the current film move, eased */
+  k: number
   detail: THREE.InstancedMesh
   matrices: Float32Array
 }
@@ -190,42 +278,52 @@ export class Armies {
   private material: THREE.MeshStandardMaterial
   private filmKeys: readonly UnitKeyframe[] = []
   private filmLayouts: Layout[][] = []
+  private filmEasing: ((t: number) => number)[][] = []
   private filmProgress: number | null = null
+  private filmIndex = 0
+  /** ground each figure has covered up to each film key, and within each move, metres */
+  private filmWalked: Float32Array[][] = []
+  private filmStep: Float32Array[][] = []
   private marchTime = { value: 0 }
+  /** added to every figure's stride phase: the walkthrough's clock (the film
+   * sets each man's phase from the ground he covers instead) */
+  readonly strideClock = { value: 0 }
   private hold: number | null = null
 
   constructor() {
-    this.material = soldierMaterial(this.marchTime)
-    const depthMaterial = soldierDepthMaterial(this.marchTime)
+    this.material = soldierMaterial(this.marchTime, this.strideClock)
+    const depthMaterial = soldierDepthMaterial(this.marchTime, this.strideClock)
     const immortals = GROUPS.find((g) => g.id === 'immortals')!
     const tg = new THREE.BufferGeometry()
     tg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(immortals.count * 3), 3))
     this.torchMat = new THREE.PointsMaterial({
       color: 0xffb060,
-      size: 15,
+      // a flame and its halo, about a metre and a half across
+      size: 3.2,
       sizeAttenuation: true,
       transparent: true,
       opacity: 0,
       depthWrite: false,
     })
-    softenPoints(this.torchMat)
+    softenPoints(this.torchMat, false)
     this.torches = new THREE.Points(tg, this.torchMat)
     this.torches.frustumCulled = false
     this.torches.visible = false
     this.root.add(this.torches)
     GROUPS.forEach((def, gi) => {
       const geom = soldierGeometry(def)
-      const motion = new Float32Array(def.count * 2)
-      for (let i = 0; i < def.count; i++) motion[i * 2] = i * 2.399963
-      geom.setAttribute('motion', new THREE.InstancedBufferAttribute(motion, 2))
+      const motion = new Float32Array(def.count * 3)
+      for (let i = 0; i < def.count; i++) motion[i * 3] = i * 2.399963
+      geom.setAttribute('motion', new THREE.InstancedBufferAttribute(motion, 3))
       geom.setAttribute('battle', new THREE.InstancedBufferAttribute(new Float32Array(def.count * 4), 4))
       const mesh = new THREE.InstancedMesh(geom, this.material, def.count)
-      mesh.frustumCulled = false
+      // culled by the bounds of where its figures stand, refreshed as they move
+      mesh.boundingSphere = new THREE.Sphere()
       mesh.name = def.id
-      const seed = 1000 + gi * 7919
+      const seed = seedOf(gi)
       const hidden = layoutFor(def, { kind: 'hidden' }, seed)
       const detailGeometry = soldierGeometry(def, true)
-      detailGeometry.setAttribute('motion', new THREE.InstancedBufferAttribute(new Float32Array(96 * 2), 2))
+      detailGeometry.setAttribute('motion', new THREE.InstancedBufferAttribute(new Float32Array(96 * 3), 3))
       detailGeometry.setAttribute('battle', new THREE.InstancedBufferAttribute(new Float32Array(96 * 4), 4))
       const detail = new THREE.InstancedMesh(detailGeometry, this.material, 96)
       detail.name = def.id + '-detail'
@@ -233,9 +331,12 @@ export class Armies {
       detail.frustumCulled = false
       detail.castShadow = detail.receiveShadow = true
       detail.customDepthMaterial = depthMaterial
-      mesh.receiveShadow = true
+      // every man casts his shadow, not only the nearest few (the armies' own
+      // bounds keep formations outside the light's view out of the shadow pass)
+      mesh.castShadow = mesh.receiveShadow = true
+      mesh.customDepthMaterial = depthMaterial
       this.root.add(detail)
-      this.armies.push({ def, mesh, from: hidden, to: hidden, seed, detail, matrices: new Float32Array(def.count * 16) })
+      this.armies.push({ def, mesh, from: hidden, to: hidden, seed, k: 1, detail, matrices: new Float32Array(def.count * 16) })
       this.root.add(mesh)
     })
     this.apply()
@@ -288,15 +389,51 @@ export class Armies {
         return cache.get(id)!
       })
     })
+    this.filmEasing = this.armies.map((a) => keys.map((_, k) => {
+      const next = keys[k + 1]
+      if (!next) return linear
+      const still = (i: number) => {
+        const from = keys[i], to = keys[i + 1]
+        // a cut is never a rest: a move that runs up to one keeps going
+        return Boolean(from && to) && to.time - from.time >= .01 && ground(from.units[a.def.id]) === ground(to.units[a.def.id])
+      }
+      if (still(k)) return linear
+      const start = still(k - 1), stop = still(k + 1)
+      return start && stop ? easeBoth : start ? easeIn : stop ? easeOut : linear
+    }))
+    // how far each man walks in each move (nothing across a cut), and in all the moves before it
+    this.filmStep = this.armies.map((a, g) => keys.map((key, k) => {
+      const n = a.def.count, step = new Float32Array(n)
+      const from = this.filmLayouts[g][k], to = this.filmLayouts[g][k + 1]
+      if (!to || keys[k + 1].time - key.time < .01 || !from.visible || !to.visible) return step
+      const path = anopaea.walked[PATH_SAMPLES]
+      for (let i = 0; i < n; i++) {
+        step[i] = from.t && to.t ? Math.abs(to.t[i] - from.t[i]) * path
+          : Math.hypot(to.data[i * 4] - from.data[i * 4], to.data[i * 4 + 2] - from.data[i * 4 + 2])
+      }
+      return step
+    }))
+    this.filmWalked = this.filmStep.map((steps) => {
+      const walked: Float32Array[] = []
+      steps.forEach((step, k) => {
+        const sum = new Float32Array(step.length)
+        if (k) for (let i = 0; i < step.length; i++) sum[i] = walked[k - 1][i] + steps[k - 1][i]
+        walked.push(sum)
+      })
+      return walked
+    })
   }
 
   sampleFilm(time: number) {
     const { index, progress } = interval(this.filmKeys, time)
     this.filmProgress = progress
+    this.filmIndex = index
     this.marchTime.value = time
+    this.strideClock.value = 0
     this.armies.forEach((army, i) => {
       army.from = this.filmLayouts[i][index]
       army.to = this.filmLayouts[i][index + 1]
+      army.k = this.filmEasing[i][index](progress)
     })
     this.apply()
   }
@@ -332,6 +469,7 @@ export class Armies {
     this.stageTime += dt
     if (this.hold !== null) this.stageTime = Math.min(this.stageTime, this.hold)
     this.marchTime.value = this.stageTime
+    this.strideClock.value = this.stageTime * WALK_CADENCE
     let marching = false
     for (const a of this.armies) {
       if (a.to.march && a.to.visible) {
@@ -366,7 +504,7 @@ export class Armies {
         const j = detail.count++
         matrix.fromArray(matrices, i * 16)
         detail.setMatrixAt(j, matrix)
-        dst.setXY(j, src.getX(i), src.getY(i))
+        dst.setXYZ(j, src.getX(i), src.getY(i), src.getZ(i))
         dstBattle.setXYZW(j,srcBattle.getX(i),srcBattle.getY(i),srcBattle.getZ(i),srcBattle.getW(i))
         mesh.setMatrixAt(i, hidden)
       }
@@ -375,15 +513,17 @@ export class Armies {
   }
 
   private apply() {
-    const k = this.filmProgress ?? ease(this.progress)
+    const staged = ease(this.progress)
     const m = new THREE.Matrix4()
     const q = new THREE.Quaternion()
     const pos = new THREE.Vector3()
     const scl = new THREE.Vector3()
     const up = new THREE.Vector3(0, 1, 0)
     const pose = new THREE.Vector4()
-    for (const a of this.armies) {
+    const lo = new THREE.Vector3(), hi = new THREE.Vector3()
+    for (const [ai, a] of this.armies.entries()) {
       const { from, to, mesh } = a
+      const k = this.filmProgress === null ? staged : a.k
       const motion = mesh.geometry.getAttribute('motion') as THREE.InstancedBufferAttribute
       const battle = mesh.geometry.getAttribute('battle') as THREE.InstancedBufferAttribute
       const n = a.def.count
@@ -411,6 +551,7 @@ export class Armies {
         continue
       }
       mesh.count = n
+      lo.set(Infinity, Infinity, Infinity); hi.set(-Infinity, -Infinity, -Infinity)
       for (let i = 0; i < n; i++) {
         const o = i * 4
         // hidden layouts sit far away: don't drag figures across the map when appearing
@@ -428,7 +569,8 @@ export class Armies {
           if (from.t && to.t) {
             // Interpolate distance along the trail, never a chord through the mountain.
             pathAt(from.t[i] + (to.t[i] - from.t[i]) * k, pos, tmpD)
-            const lane = (i % (to.abreast ?? 3)) - ((to.abreast ?? 3) - 1) / 2
+            // the same file-to-file sway placeColumn gives, fixed per man
+            const lane = (i % (to.abreast ?? 3)) - ((to.abreast ?? 3) - 1) / 2 + ((i * 0.618034) % 1 - 0.5) * 0.35
             pos.x -= tmpD.z * lane * 1.6
             pos.z += tmpD.x * lane * 1.6
             pos.y = heightAt(pos.x, pos.z)
@@ -446,11 +588,15 @@ export class Armies {
         battle.setXYZW(i,pose.x,pose.y,pose.z,pose.w)
         const moving = this.filmProgress !== null ? Math.hypot(tx-fx,tz-fz)>.1 : (k < 1 || Boolean(to.march))
         motion.setY(i, moving && from.visible && to.visible ? (1-pose.y)*(1-pose.z)*(1-pose.x*.8) : 0)
+        // the film: his legs keep pace with the ground he covers, so his feet never skate
+        motion.setZ(i, this.filmProgress === null ? 0
+          : (this.filmWalked[ai][this.filmIndex][i] + k * this.filmStep[ai][this.filmIndex][i]) * Math.PI * 2 / STRIDE)
         // shortest-way heading interpolation
         q.setFromAxisAngle(up, heading)
         scl.setScalar(s)
         m.compose(pos, q, scl)
         mesh.setMatrixAt(i, m)
+        lo.min(pos); hi.max(pos)
         if (a.def.id === 'immortals') {
           const t = this.torches.geometry.attributes.position as THREE.BufferAttribute
           // every third figure carries a torch, held at shoulder height
@@ -460,6 +606,9 @@ export class Armies {
         }
       }
       a.matrices.set(mesh.instanceMatrix.array)
+      // around every figure, with room for his height, spear and stride
+      mesh.boundingSphere!.center.addVectors(lo, hi).multiplyScalar(.5)
+      mesh.boundingSphere!.radius = lo.distanceTo(hi) / 2 + 6 * FIGURE_SIZE
       mesh.instanceMatrix.needsUpdate = true
       motion.needsUpdate = true
       battle.needsUpdate = true

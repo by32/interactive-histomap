@@ -208,7 +208,8 @@ class Body:
                 tris += [(a, d, c), (a, c, b)]
         verts = np.array(verts)
         color = _colour(color) if colour_at is None else np.array([_colour(colour_at(v)) for v in verts])
-        return Part(to_blender(verts), tris, color, np.array(gaits), 0.0, 1.0)
+        # lofted at the resolution asked for: decimating it would tear it open
+        return Part(to_blender(verts), tris, color, np.array(gaits), 0.0, 1.0, decimate=False)
 
 
 def decimate(part, ratio):

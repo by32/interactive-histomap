@@ -48,6 +48,37 @@ test('every formation has a near and far model with the rig attributes', async (
   }
 })
 
+/** The figure as a distant viewer sees it: the extent of the body and its
+ * shield (not the spear or the hidden sword) and its mean colour by area. */
+function appearance(geo: THREE.BufferGeometry) {
+  const p = geo.getAttribute('position'), c = geo.getAttribute('color'), gait = geo.getAttribute('_gait'), index = geo.index!
+  const box = new THREE.Box3(), colour = new THREE.Vector3(), a = new THREE.Vector3(), b = new THREE.Vector3(), d = new THREE.Vector3()
+  let area = 0
+  for (let t = 0; t < index.count; t += 3) {
+    const tri = [index.getX(t), index.getX(t + 1), index.getX(t + 2)]
+    if (tri.some((v) => Math.abs(gait.getX(v)) > 2.5)) continue
+    a.fromBufferAttribute(p, tri[0]); b.fromBufferAttribute(p, tri[1]); d.fromBufferAttribute(p, tri[2])
+    box.expandByPoint(a).expandByPoint(b).expandByPoint(d)
+    const s = b.sub(a).cross(d.sub(a)).length() / 2
+    area += s
+    for (const v of tri) colour.add(new THREE.Vector3(c.getX(v), c.getY(v), c.getZ(v)).multiplyScalar(s / 3))
+  }
+  return { size: box.getSize(new THREE.Vector3()), colour: colour.divideScalar(area) }
+}
+
+test('near and far models look alike, so figures do not change as the camera passes', async () => {
+  const meshes = await loadModels()
+  for (const g of GROUPS) {
+    const near = appearance(meshes.get(`${g.id}_LOD0`)!), far = appearance(meshes.get(`${g.id}_LOD1`)!)
+    for (const axis of ['x', 'y', 'z'] as const)
+      expect(Math.abs(far.size[axis] / near.size[axis] - 1), `${g.id} ${axis} extent`).toBeLessThan(.08)
+    const sum = (v: THREE.Vector3) => v.x + v.y + v.z
+    expect(Math.abs(sum(far.colour) / sum(near.colour) - 1), `${g.id} brightness`).toBeLessThan(.08)
+    for (const channel of ['x', 'y', 'z'] as const)
+      expect(Math.abs(far.colour[channel] / sum(far.colour) - near.colour[channel] / sum(near.colour)), `${g.id} hue`).toBeLessThan(.02)
+  }
+})
+
 test('the models carry the joints the rig turns them about', async () => {
   const { rigs } = await loadModels()
   expect(rigs.length).toBe(GROUPS.length * 2)

@@ -50,7 +50,7 @@ def lineup(objects, out, width=1600, height=900, samples=64):
     scene.world = world
     cam = bpy.data.objects.new("Cam", bpy.data.cameras.new("Cam"))
     cam.data.lens = 50
-    cam.location = (0.4, -6.2, 1.9)
+    cam.location = (0.2, -11.5, 2.2)  # every formation, near models in front
     cam.rotation_mode = "QUATERNION"
     cam.rotation_quaternion = (Vector((0, 0.8, 1.0)) - cam.location).to_track_quat("-Z", "Y")
     scene.collection.objects.link(cam)

@@ -1,5 +1,10 @@
 import { EXTENT, heightAt, modernHeightAt } from './terrain'
+import * as THREE from 'three'
 import { CAMERA_FOV, GROUPS, STILL_SECONDS, type Stage } from './script'
+import { formationHash, layoutHash } from './units'
+import { FILM_CHAPTERS, LIGHT_KEYS, UNIT_KEYS } from './film'
+import { FilmCamera } from './film-camera'
+import { FILM_DURATION } from './timeline'
 
 /** FNV-1a over a string, as 8 hex digits */
 export function fnv(text: string): string {
@@ -42,15 +47,52 @@ export function terrainFingerprint(modern = false): string {
  * its camera, formations, the terrain, the field of view and the moment the
  * still is taken. A still is shown only while this matches.
  */
+const stageFingerprints = new WeakMap<Stage, string>()
 export function stageFingerprint(stage: Stage): string {
-  return fnv(
+  const known = stageFingerprints.get(stage)
+  if (known) return known
+  const print = fnv(
     JSON.stringify({
       camera: stage.camera,
       units: stage.units,
+      formations: formationHash(stage.units),
       fov: CAMERA_FOV,
       still: STILL_SECONDS,
       groups: GROUPS.map((g) => [g.id, g.count]),
       terrain: terrainFingerprint(false),
     }),
   )
+  stageFingerprints.set(stage, print)
+  return print
+}
+
+/**
+ * What the rendered film depends on: its keys, where every formation in them
+ * stands, the camera's path and the terrain. The page offers a rendered film
+ * only while this matches, so a changed battle never plays an old render.
+ * (A change to how the film moves between its keys alone does not show here:
+ * re-render after one.)
+ */
+export function filmFingerprint(): string {
+  const formations: number[] = []
+  const seen = new Set<string>()
+  for (const key of UNIT_KEYS) GROUPS.forEach((def, g) => {
+    const placement = key.units[def.id] ?? { kind: 'hidden' as const }
+    const id = `${g}:${JSON.stringify(placement)}`
+    if (!seen.has(id)) { seen.add(id); formations.push(layoutHash(g, placement)) }
+  })
+  const camera = new FilmCamera(), eye = new THREE.Vector3(), target = new THREE.Vector3(), path: number[] = []
+  for (let t = 0; t <= FILM_DURATION; t++) {
+    camera.sample(t, eye, target)
+    path.push(...[eye.x, eye.y, eye.z, target.x, target.y, target.z].map(Math.round))
+  }
+  return fnv(JSON.stringify({
+    keys: UNIT_KEYS,
+    light: LIGHT_KEYS,
+    chapters: FILM_CHAPTERS.map((c) => [c.id, c.time]),
+    formations,
+    camera: path,
+    groups: GROUPS.map((g) => [g.id, g.count]),
+    terrain: terrainFingerprint(false),
+  }))
 }

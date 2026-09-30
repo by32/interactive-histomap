@@ -8,7 +8,7 @@ import { execFileSync } from 'node:child_process'
 
 const [frames = '.cache/thermopylae/film/frames', out = '.cache/thermopylae/film/out'] = process.argv.slice(2)
 const scene = JSON.parse(readFileSync('.cache/thermopylae/scene/scene.json', 'utf8'))
-const { fps, chapters } = scene.film
+const { fps, chapters, fingerprint } = scene.film
 const files = readdirSync(frames).filter((f) => /^\d{5}\.png$/.test(f)).sort()
 if (!files.length) throw new Error(`no frames in ${frames}`)
 const numbers = files.map((f) => Number(f.slice(0, 5)))
@@ -34,6 +34,8 @@ const cues = chapters
 writeFileSync(join(out, 'thermopylae-chapters.vtt'), `WEBVTT\n\n${cues.join('\n\n')}\n`)
 const film = {
   fps,
+  // the page plays this film only while the battle it shows is unchanged
+  fingerprint,
   start,
   duration: end - start,
   frames: files.length,

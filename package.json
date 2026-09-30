@@ -19,7 +19,8 @@
     "build:models": "npm run export:scene && node scripts/thermopylae/blender.mjs models",
     "bake:terrain": "npm run export:scene && node scripts/thermopylae/blender.mjs bake",
     "render:stills": "npm run export:scene && node scripts/thermopylae/blender.mjs stills",
-    "encode:stills": "node scripts/thermopylae/encode-stills.mjs"
+    "encode:stills": "node scripts/thermopylae/encode-stills.mjs",
+    "review:clips": "node --experimental-strip-types --no-warnings --import ./scripts/thermopylae/ts-hook.mjs scripts/thermopylae/review-clips.mts"
   },
   "dependencies": {
     "@types/three": "^0.185.4",

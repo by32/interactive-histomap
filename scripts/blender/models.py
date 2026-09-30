@@ -7,7 +7,8 @@ surface (common/dress.py):
   hoplite  - Corinthian helmet with a crest, bronze cuirass with shoulder
              guards, chiton and pteruges, greaves, a bronze-faced aspis and a
              dory with a sauroter (Spartans, Thespians, Thebans, allies, Phocians)
-  persian  - soft felt tiara, sleeved tunic and trousers, a bowed wicker spara,
+  persian  - soft felt tiara, dyed sleeved tunic and trousers, a bowed wicker spara
+             carried from knee to chest,
              short spear with a counterweight, bow case (host, Medes)
   immortal - long robe with bordered hem and cuffs, fillet, spear with a golden
              pomegranate butt, quiver and bow case (Herodotus 7.41, 7.61, 7.83)
@@ -49,16 +50,22 @@ SPARTAN_CREST = 0x5E231C
 IRON = 0x6F706A
 WOOD = 0x6A4F33
 GOLD = 0xA88A45
-WICKER = 0x8C7447
+WICKER = 0x6B5836
+RAWHIDE = 0x3F2E20
 HAIR = 0x221A15
 PTERUGES = 0x8A6F4E
 DRESS = {
-    # Persian formations: tunic (or robe), trousers
-    "host": (0x876646, 0x4F4032),
-    "medes": (0x6E5A40, 0x5A4632),
+    # Persian formations: tunic (or robe), trousers. Herodotus (7.61) gives the
+    # Persians and Medes sleeved tunics "of many colours": dyed wool, not the
+    # undyed tan of skin, so a man never reads as one colour from cap to boot
+    "host": (0x7B3F2C, 0x3B342C),
+    "medes": (0x4F5638, 0x3E3528),
     "immortals": (0xA88F63, 0x4F4032),
 }
 BUDGET = {"LOD0": 2400, "LOD1": 500}
+# decimation spares a small part down to this many triangles, so a sleeve,
+# greave or shoulder guard never collapses away in the far model
+KEEP = 16
 
 
 def P(x, y, z):
@@ -89,17 +96,21 @@ class Figure:
         return self.add(from_bmesh(bm, color, gait, metal, weight, smooth))
 
     def fit(self, budget):
-        """Decimate the body-drawn parts together to bring the figure within budget."""
-        fixed = sum(p.tri_count for p in self.parts if not p.decimate)
+        """Decimate the body-drawn parts together to bring the figure within budget,
+        the large ones (the skin) most: small parts keep at least KEEP triangles."""
         source = self.parts
-        target = budget
+
+        def ratios(r):
+            return [max(r, min(1.0, KEEP / max(p.tri_count, 1))) if p.decimate else 1.0 for p in source]
+
+        fixed = sum(p.tri_count for p in source if not p.decimate)
+        ratio = (budget - fixed) / max(1, sum(p.tri_count for p in source if p.decimate))
         # collapse decimation lands near, not on, its ratio: tighten until within budget
-        for _ in range(6):
-            flexible = sum(p.tri_count for p in source if p.decimate)
-            self.parts = [decimate(p, min(1.0, (target - fixed) / max(flexible, 1))) for p in source]
+        for _ in range(12):
+            self.parts = [decimate(p, q) for p, q in zip(source, ratios(ratio))]
             if self.tris <= budget:
                 return
-            target -= self.tris - budget + 4
+            ratio *= (budget - fixed) / max(1, self.tris - fixed) * 0.98
         raise AssertionError(f"{self.name}: cannot fit {budget} triangles")
 
     @property
@@ -163,16 +174,6 @@ def lathe(profile, segments, center=(0, 0, 0), sx=1.0, sz=1.0, cap_bottom=True, 
         bm.faces.new(rings[-1])
     bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-    return bm
-
-
-def box(size, center, rot=None):
-    bm = bmesh.new()
-    bmesh.ops.create_cube(bm, size=1.0)
-    m = Matrix.Diagonal((size[0], size[2], size[1], 1.0))  # three (x, y, z) sizes -> Blender (x, z-depth, y-height)
-    if rot is not None:
-        m = rot @ m
-    bmesh.ops.transform(bm, matrix=Matrix.Translation(P(*center)) @ m, verts=bm.verts)
     return bm
 
 
@@ -315,12 +316,11 @@ def hoplite(b, group, detail):
     dome = np.stack([np.zeros_like(y), np.maximum(y - 1.63, 0) * 0.25, np.zeros_like(y)], axis=1)
     fig.add(b.shell(helmet, 0.022, BRONZE, metal=0.8, grow=flare + dome))
     crest = _crest_path(b)
-    if detail:
-        heights = (0.03, 0.07, 0.085, 0.08, 0.06, 0.045, 0.025)
-        fig.add_bmesh(tube([(0, py + h * 0.55, pz) for (_, py, pz), h in zip(crest, heights)],
-                           [(h * 0.55, 0.018) for h in heights], 8), SPARTAN_CREST if spartan else HORSEHAIR)
-    else:
-        fig.add_bmesh(box((0.035, 0.08, 0.3), (0, crest[3][1] + 0.04, crest[3][2])), SPARTAN_CREST if spartan else HORSEHAIR, smooth=False)
+    # the same horsehair crest near and far, only coarser far off: never a block
+    heights = (0.03, 0.07, 0.085, 0.08, 0.06, 0.045, 0.025)
+    along = range(7) if detail else (0, 2, 4, 6)
+    fig.add_bmesh(tube([(0, crest[i][1] + heights[i] * 0.55, crest[i][2]) for i in along],
+                       [(heights[i] * 0.55, 0.018) for i in along], 8 if detail else 4), SPARTAN_CREST if spartan else HORSEHAIR)
     # aspis: a convex bronze-faced dish with a rim and the formation's blazon
     centre = _shield_centre(b, 0.11)
     dish = lathe([(0.0, 0.45), (0.05, 0.40), (0.085, 0.24), (0.095, 0.0)] if detail else [(0.0, 0.46), (0.07, 0.3), (0.095, 0.0)], 20 if detail else 8, cap_bottom=False)
@@ -368,32 +368,34 @@ def persian(b, group, detail, immortal=False):
         # a soft felt tiara in the formation's colour, with flaps over the chin and neck
         cap = head & ~face & ((y > 1.64) | (np.abs(x) > 0.055) | (z < HEAD_Z))
         peak = np.stack([np.zeros_like(y), np.maximum(y - 1.68, 0) * 1.2, -np.maximum(y - 1.68, 0) * 0.4], axis=1)
-        fig.add(b.shell(cap, 0.02, accent * 0.62, grow=peak))  # felt, dyed deeper than skin
+        fig.add(b.shell(cap, 0.02, accent * 0.45, grow=peak))  # felt, dyed well deeper than skin
     if detail:
         fig.add(b.skirt(1.005, 0.965, LEATHER, pad=0.045, flare=0.0, rings=2, segments=20))  # belt
         fig.add(b.shell(head & (z > HEAD_Z) & (y > 1.47) & (y < 1.57) & (np.abs(x) < 0.075), 0.012, HAIR))  # beard
     fig.add(b.shell(legs & (y < 0.08), 0.01, LEATHER))
     if not immortal:
-        # spara: a tall wicker shield, gently bowed, its rows of withies in the colour
-        cx, cy, cz = _shield_centre(b, 0.1)
-        cols, rows = (6, 12) if detail else (3, 4)
-        w, h = 0.56, 1.1
+        # spara: a wicker shield bound in rawhide, bowed, its top arched; carried
+        # on the forearm from the knee to the chest, never over the face
+        cx, _, cz = _shield_centre(b, 0.1)
+        cols, rows = (8, 12) if detail else (4, 4)
+        w, bottom, top = 0.48, 0.5, 1.26
         verts, tris, colours = [], [], []
         for r in range(rows + 1):
             for c in range(cols + 1):
                 u, v = c / cols, r / rows
-                verts.append((cx + (u - 0.5) * w, cy - 0.45 + v * h, cz + 0.05 * (1 - (2 * u - 1) ** 2)))
-                colours.append(srgb(WICKER) * (0.8 if (r % 2 or c in (0, cols)) else 1.05))
+                arch = 1 - (2 * u - 1) ** 2
+                verts.append((cx + (u - 0.5) * w, bottom + v * (top - bottom + 0.05 * arch), cz + 0.08 * arch))
+                rim = r in (0, rows) or c in (0, cols)
+                colours.append(srgb(RAWHIDE) if rim else srgb(WICKER) * (0.72 if r % 2 else 1.1))
         for r in range(rows):
             for c in range(cols):
                 a = r * (cols + 1) + c
                 tris += [(a, a + 1, a + cols + 2), (a, a + cols + 2, a + cols + 1)]
-        fig.add(Part(to_blender(np.array(verts)), tris, np.array(colours), gait=-2, smooth=False, decimate=False))
+        fig.add(Part(to_blender(np.array(verts)), tris, np.array(colours), gait=-2, smooth=bool(detail), decimate=False))
     _spear(fig, b, detail, 2.0, 0.72, 0.19, "ball", GOLD if immortal else BRONZE)
     # bow case on the left hip, quiver on the back
     fig.add_bmesh(rod((-0.2, 1.02, -0.06), (-0.27, 0.6, 0.02), 0.065, 0.045, 6 if detail else 4), LEATHER)
-    if immortal or detail:
-        fig.add_bmesh(rod((0.08, 1.45, -0.19), (0.14, 0.95, -0.18), 0.05, 0.045, 6 if detail else 4), srgb(LEATHER) * 1.3)
+    fig.add_bmesh(rod((0.08, 1.45, -0.19), (0.14, 0.95, -0.18), 0.05, 0.045, 6 if detail else 4), srgb(LEATHER) * 1.3)
     return fig
 
 

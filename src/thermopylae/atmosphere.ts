@@ -35,6 +35,9 @@ export function limestoneMaterial(vertexColors = true) {
   return material
 }
 
+/** the sea's tiles a side: 300 m each */
+export const SEA_TILES = 200
+
 export function flowingWater() {
   const time = { value: 0 }
   const modern = { value: 0 }
@@ -70,10 +73,17 @@ export function flowingWater() {
       float filteredCos(float phase) { return cos(phase) * (1.0 - smoothstep(.7, 3.0, fwidth(phase))); }
     `)
     shader.fragmentShader = shader.fragmentShader.replace('#include <normal_fragment_begin>', `#include <normal_fragment_begin>
-      vec2 p = vWater.xz;
+      // a gentle warp keeps the wave trains from ruling straight lines, and far
+      // off, where a pixel covers metres of sea, ripples give way to a calm
+      // surface instead of drawing regular stripes across it
+      vec2 p = vWater.xz + 16.0 * sin(vWater.zx * vec2(.021, .017) + vec2(1.7, 4.1)) + 5.0 * sin(vWater.zx * vec2(.061, .053));
       float t = waterTime;
-      float waveX = filteredCos(p.x*.14 + p.y*.07 + t*.7)*.027 + filteredCos(p.x*.63-p.y*.21+t*1.2)*.012;
-      float waveZ = filteredCos(p.y*.18-p.x*.04+t*.6)*.024 + filteredCos(p.y*.49+p.x*.29-t*.9)*.010;
+      float calm = 1.0 - smoothstep(150.0, 600.0, distance(cameraPosition, vWater));
+      // several short wave trains from different quarters: a choppy gulf, never ruled lines of glitter
+      float waveX = (filteredCos(p.x*.14 + p.y*.07 + t*.7)*.012 + filteredCos(p.x*.63-p.y*.21+t*1.2)*.011
+        + filteredCos(p.x*.31+p.y*.37-t*.8)*.009 + filteredCos(-p.x*.43+p.y*.19+t*1.1)*.008) * calm;
+      float waveZ = (filteredCos(p.y*.18-p.x*.04+t*.6)*.011 + filteredCos(p.y*.49+p.x*.29-t*.9)*.010
+        + filteredCos(p.y*.27-p.x*.33+t*.95)*.009 + filteredCos(p.y*.58+p.x*.11-t*1.3)*.007) * calm;
       normal = normalize((viewMatrix * vec4(-waveX, 1.0, -waveZ, 0.0)).xyz);
     `)
     shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
@@ -85,14 +95,17 @@ export function flowingWater() {
       float footprint = max(1.0, fwidth(offshore));
       float shoreWidth = 4.5 + footprint;
       float foam = (1.0 - smoothstep(1.5, shoreWidth, abs(offshore - 4.0))) * (4.5 / shoreWidth);
-      foam *= .30 + .06 * filteredCos(vWater.x * .055 + waterTime * .38);
+      foam *= .30 + .04 * filteredCos(vWater.x * .055 + waterTime * .38) + .03 * filteredCos(vWater.x * .0213 - waterTime * .23);
       float inMap = step(-3600.0, vWater.x) * step(vWater.x, 3000.0);
       diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.19,.40,.34), (1.0 - smoothstep(0.0,45.0,offshore)) * .35 * inMap);
       diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.64,.73,.63), foam * inMap);
     `)
   }
-  material.customProgramCacheKey = () => 'water-integrated-coast-v3'
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(60000, 60000).rotateX(-Math.PI / 2), material)
+  material.customProgramCacheKey = () => 'water-integrated-coast-v6'
+  // Tiled, not two vast triangles: depth interpolated across a triangle 60 km
+  // wide is too coarse near the camera, and the sea flashed over the beach and
+  // the men standing on it for a frame at a time.
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(60000, 60000, SEA_TILES, SEA_TILES).rotateX(-Math.PI / 2), material)
   mesh.name = 'sea'
   return { mesh, time, modern }
 }
@@ -113,8 +126,10 @@ export function nightSky() {
   return {mesh,material}
 }
 
-export function softenPoints(material: THREE.PointsMaterial) {
-  material.blending=THREE.AdditiveBlending
+/** Round, soft-edged points. Additive for sparse lights (camp fires); a torch
+ * column blends normally, or distant torches stack into a flare. */
+export function softenPoints(material: THREE.PointsMaterial, additive = true) {
+  material.blending=additive ? THREE.AdditiveBlending : THREE.NormalBlending
   material.onBeforeCompile=(shader)=>{
     shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
       float radius=length(gl_PointCoord-.5)*2.0;
@@ -131,10 +146,19 @@ export function focusLight(light: THREE.DirectionalLight, target: THREE.Vector3,
   const c=light.shadow.camera
   c.left=c.bottom=-radius
   c.right=c.top=radius
+  // depth spans only what can cast onto the view, so the bias is centimetres,
+  // not metres: shadows start at a man's feet
   c.near=10
-  c.far=6000
+  c.far=2500+radius*1.5
   c.updateProjectionMatrix()
+  // a texel and a half of slack: enough that nothing shadows itself, never a man's height
+  const texel=2*radius/light.shadow.mapSize.x
+  light.shadow.bias=-Math.max(SHADOW_GAP,1.5*texel)/(c.far-c.near)
+  light.shadow.normalBias=texel
 }
+
+/** metres between a caster and the shadow it may leave out, at most */
+export const SHADOW_GAP=.05
 
 /** Natural scatter at the pass adds near-ground scale without changing geography. */
 export function coastalRocks() {

@@ -32,5 +32,5 @@ class SceneData:
         raise KeyError(f"no stage {key!r}")
 
     def army(self, flat: np.ndarray) -> np.ndarray:
-        """figures × 11: x, y, z, heading, scale, battle.xyzw, motion.xy (three.js frame)"""
+        """figures × 12: x, y, z, heading, scale, battle.xyzw, motion.xy, stride phase (three.js frame)"""
         return flat.reshape(-1, self.json["armyStride"])
