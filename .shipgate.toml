@@ -1,0 +1,17 @@
+# The default branch of by32/interactive-histomap is claude/modern-interactive-histomap-5dd3w4
+# (no main exists). deploy.yml publishes GitHub Pages on every push to it
+# (the github-pages environment only allows this branch), so watch the deploy.
+tier = "push-and-watch"
+
+# Lint, typecheck + production build, the browserless unit checks, then the
+# Playwright smoke tests (they serve dist/ with vite preview, so build comes
+# first). Needs node_modules (npm ci) and Playwright's chromium; about 2 minutes.
+verify = "npm run lint && npm run build && npm run test:film && npm test"
+
+# No workflow, cron or script commits to this repo, so there are no skip_paths
+# or [[automation]] entries. render-film.yml and publish-film.yml only create
+# releases and start deploys.
+
+# Workflows deploy the site and publish the film release (contents:write,
+# pages:write, actions:write).
+ask_first = [".github/workflows/**"]
